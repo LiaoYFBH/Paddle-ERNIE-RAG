@@ -140,7 +140,7 @@ class MilvusVectorStore:
                     anns_field="embedding", 
                     param=search_params,
                     limit=top_k * 5,
-                    expr=expr,  # 将过滤条件传给 Milvus
+                    expr=expr, 
                     output_fields=["filename", "page", "content", "chunk_id"]
                 )
                 

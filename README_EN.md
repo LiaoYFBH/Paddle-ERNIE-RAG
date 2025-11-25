@@ -1,5 +1,5 @@
+[English](README_EN.md) | [中文](README.md)
 # 🚀 Paddle-RAG: Multi-Document Analysis System with ERNIE 4.5 & PaddleOCR
-[中文文档](README.md)
 
 ## 📖 Introduction
 

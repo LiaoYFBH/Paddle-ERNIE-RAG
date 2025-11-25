@@ -625,17 +625,6 @@ def refresh_all_dropdowns():
         gr.update(choices=new_cols)
     )
 
-# --- UI ---
-# custom_css = """
-# body, .gradio-container { background-color: #ffffff !important; }
-# .gr-group, .gr-box, .gr-panel { border-radius: 12px; border: 1px solid #e5e7eb; }
-# .header-banner { background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 15px; }
-# .header-title { font-size: 1.5rem; font-weight: 700; }
-# .chatbot-container { min-height: 600px !important; }
-# """
-# ==============================================================================
-# 🎨 [修改样式] 强制全白风格
-# ==============================================================================
 custom_css = """
 /* 1. 覆盖 Gradio 全局颜色变量 (保持全白风格) */
 :root, body, .gradio-container {
@@ -680,7 +669,7 @@ theme = gr.themes.Soft(primary_hue="blue", secondary_hue="slate")
 with gr.Blocks(title="多文档智能分析与问答系统", theme=theme, css=custom_css) as demo:
     gr.HTML("""
         <div class="header-banner">
-            <div class="header-title">🚀 多文档智能分析与问答系统 (PaddleX高精度版)</div>
+            <div class="header-title">🚀 多文档智能分析与问答系统 (PaddleOCR高精度版)</div>
             <div class="header-subtitle"> PaddleOCR  · ERNIE 4.5 · Milvus</div>
         </div>
     """)
@@ -717,34 +706,6 @@ with gr.Blocks(title="多文档智能分析与问答系统", theme=theme, css=cu
             msg.submit(chat_respond, inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], outputs=[chatbot, chatbot, msg, qa_metric, image_context_state])
             submit_btn.click(chat_respond, inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], outputs=[chatbot, chatbot, msg, qa_metric, image_context_state])
 
-        # with gr.TabItem("🛠️ 知识库管理"):
-        #     with gr.Row():
-        #         with gr.Column():
-        #             with gr.Group():
-        #                 gr.Markdown("### 📤 上传文档")
-        #                 upload_col_select = gr.Dropdown(label="目标 Collection", allow_custom_value=True, choices=[])
-        #                 files_input = gr.File(label="PDF文件", file_count="multiple", type="filepath")
-        #                 upload_btn = gr.Button("PaddleX 智能解析 (V3)", variant="primary")
-        #                 upload_log = gr.Textbox(label="日志", lines=4)
-        #         with gr.Column():
-        #             with gr.Group():
-        #                 gr.Markdown("### ⚙️ 操作")
-        #                 new_col_name = gr.Textbox(label="新建")
-        #                 create_btn = gr.Button("创建", variant="secondary")
-        #                 create_msg = gr.Label(show_label=False)
-        #                 del_col_select = gr.Dropdown(label="删除", choices=[])
-        #                 del_btn = gr.Button("删除", variant="stop")
-        #                 # === [新增] 召回率测试按钮 ===
-        #                 gr.Markdown("### 🧪 索引质量测试")
-        #                 test_recall_btn = gr.Button("🚀 运行自回归召回测试 (Self-Recall)", variant="secondary")
-        #                 test_result_box = gr.Textbox(label="测试结果", lines=2)
-
-        #                 # 绑定点击事件
-        #                 test_recall_btn.click(
-        #                     run_recall_test, 
-        #                     inputs=[upload_col_select], # 注意：这里复用了“目标 Collection”的下拉框作为输入
-        #                     outputs=[test_result_box]
-        #                     )
         with gr.TabItem("🛠️ 知识库管理"):
             with gr.Row():
                 with gr.Column(scale=1):
@@ -773,9 +734,6 @@ with gr.Blocks(title="多文档智能分析与问答系统", theme=theme, css=cu
                         # 结果显示框
                         test_result_box = gr.Textbox(show_label=False, lines=2)
 
-                # =======================
-                # 👉 右侧列：库管理 (创建/删除)
-                # =======================
                 with gr.Column(scale=1):
                     with gr.Group():
                         gr.Markdown("### ⚙️ 库管理操作")
@@ -787,7 +745,6 @@ with gr.Blocks(title="多文档智能分析与问答系统", theme=theme, css=cu
                         create_msg = gr.Label(show_label=False)
                         
                         gr.Markdown("---")
-                        # --- 2. 删除文档 (🟢 新增功能) ---
                         gr.Markdown("#### 📄 删除指定文档")
                         with gr.Row():
                             # 下拉框：选择要删除的文件
