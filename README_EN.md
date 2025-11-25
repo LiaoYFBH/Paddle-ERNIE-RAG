@@ -5,7 +5,7 @@
 
 This project is a high-performance Retrieval-Augmented Generation (RAG) system designed for complex academic papers and technical documents. Unlike traditional LangChain-based text splitting, this project deeply integrates the PaddleX (PP-StructureV3) intelligent document parsing engine, which can accurately recognize layout, tables, formulas, and images within PDFs.
 
-Combined with the powerful semantic understanding of Baidu ERNIE 4.5 and the Milvus vector database, it achieves "What You Ask Is What You Get" with precise citation sourcing. The system is deeply optimized for CPU environments and supports Local Offline Mode (Milvus Lite), allowing deployment without complex servers.
+Combined with the powerful semantic understanding of Baidu ERNIE 4.5 and the Milvus vector database, it achieves "What You Ask Is What You Get" with precise citation sourcing. The system supports Local Offline Mode (Milvus Lite), allowing deployment without complex servers.
 
 ## ✨ Key Features
 
@@ -20,8 +20,6 @@ Combined with the powerful semantic understanding of Baidu ERNIE 4.5 and the Mil
 Precise Page Indexing: Dynamic chunking strategy based on pages ensures answers include exact page citations (e.g., P1, P2), eliminating hallucinations.
 
 ⚡ Hybrid Search: Combines Dense Vector retrieval with Keyword retrieval, optimized by the RRF algorithm to significantly improve recall rates.
-
-🖥️ CPU Optimization: Built-in paddle.set_device("cpu") locking logic ensures stable OCR and inference operations even in non-GPU environments without conflicts.
 
 🖼️ Multimodal Context: Capable of not only answering with text but also extracting and displaying key charts and illustrations from the document as context supplements.
 
