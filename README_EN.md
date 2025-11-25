@@ -1,5 +1,6 @@
 # 🚀 Paddle-RAG: Multi-Document Analysis System with ERNIE 4.5 & PaddleX
 [中文文档](README.md)
+
 ## 📖 Introduction
 
 This project is a high-performance Retrieval-Augmented Generation (RAG) system designed for complex academic papers and technical documents. Unlike traditional LangChain-based text splitting, this project deeply integrates the PaddleX (PP-StructureV3) intelligent document parsing engine, which can accurately recognize layout, tables, formulas, and images within PDFs.

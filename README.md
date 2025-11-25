@@ -6,6 +6,7 @@
 
 [English Version](README_EN.md)
 
+
 ## 📖 项目简介
 本项目是一个高性能的文档问答系统（RAG），专为处理复杂的学术论文和技术文档设计。不同于传统的基于 LangChain 的简单文本切分，本项目深度集成了 PaddleX (PP-StructureV3) 智能文档解析引擎，能够精准识别 PDF 中的版面布局、表格、公式和图片。
 
