@@ -49,7 +49,7 @@ Supports one-click switching between **Cloud Milvus** and **Local Offline Mode (
 
 ### 2. Knowledge Base & Intelligent Parsing
 Powered by the PaddleX V3 parsing engine with support for Chinese/English model switching. The system features a real-time progress bar for transparent processing.
-![Upload and Parse](images/演示2.jpg)
+![Upload and Parse](images/演示2.png)
 
 ### 3. Document Management
 Supports multiple Collection management and viewing of all documents in the library. Supports macro Q&A on "All Documents" or deep reading focused on a "Single Document".
@@ -57,11 +57,11 @@ Supports multiple Collection management and viewing of all documents in the libr
 
 ### 4. Precision Q&A with Citations
 After asking a question, the system displays retrieved reference chunks marked with **precise page numbers** and **relevance scores**. Click to verify the source.
-![Q&A](images/演示4.jpg)
+![Q&A](images/演示4.png)
 
 ### 5. Charts & Knowledge Fusion
 The system automatically extracts images and charts (e.g., knowledge graph structures, statistical charts) from PDFs. Relevant images are automatically displayed on the right side when answering questions to assist understanding.
-![Chart Analysis](images/演示5.jpg)
+![Chart Analysis](images/演示5.png)
 ## 📥 Quick Start (Pre-built Database)
 
 To experience the system's capabilities immediately without manually parsing documents, you can download my **Pre-built Demo Database**.
