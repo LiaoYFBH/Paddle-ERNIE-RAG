@@ -22,23 +22,6 @@ Precise Page Indexing: Dynamic chunking strategy based on pages ensures answers 
 ⚡ Hybrid Search: Combines Dense Vector retrieval with Keyword retrieval, optimized by the RRF algorithm to significantly improve recall rates.
 
 🖼️ Multimodal Context: Capable of not only answering with text but also extracting and displaying key charts and illustrations from the document as context supplements.
-
-## 📸 Feature Showcase
-
-1. **Configuration & Local Mode**
-   Supports one-click switching between Cloud Milvus and Local Offline Mode (Milvus Lite). Simply configure your Baidu AIStudio and Qianfan API Keys to start, keeping data under your control.
-
-2. **Knowledge Base & Intelligent Parsing**
-   Powered by the PaddleX V3 parsing engine with support for Chinese/English model switching. The system features a real-time progress bar for transparent processing.
-
-3. **Document Management**
-   Supports multiple Collection management and viewing of all documents in the library. Supports macro Q&A on "All Documents" or deep reading focused on a "Single Document".
-
-4. **Precision Q&A with Citations**
-   After asking a question, the system displays retrieved reference chunks marked with precise page numbers and relevance scores. Click to verify the source.
-
-5. **Charts & Knowledge Fusion**
-   The system automatically extracts images and charts (e.g., knowledge graph structures, statistical charts) from PDFs. Relevant images are automatically displayed on the right side when answering questions to assist understanding.
 ## 📸 Feature Showcase
 
 ### 1. Configuration & Local Mode
