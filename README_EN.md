@@ -1,9 +1,9 @@
-# 🚀 Paddle-RAG: Multi-Document Analysis System with ERNIE 4.5 & PaddleX
+# 🚀 Paddle-RAG: Multi-Document Analysis System with ERNIE 4.5 & PaddleOCR
 [中文文档](README.md)
 
 ## 📖 Introduction
 
-This project is a high-performance Retrieval-Augmented Generation (RAG) system designed for complex academic papers and technical documents. Unlike traditional LangChain-based text splitting, this project deeply integrates the PaddleX (PP-StructureV3) intelligent document parsing engine, which can accurately recognize layout, tables, formulas, and images within PDFs.
+This project is a high-performance Retrieval-Augmented Generation (RAG) system designed for complex academic papers and technical documents. Unlike traditional LangChain-based text splitting, this project deeply integrates the PaddleOCR (PP-StructureV3) intelligent document parsing engine, which can accurately recognize layout, tables, formulas, and images within PDFs.
 
 Combined with the powerful semantic understanding of Baidu ERNIE 4.5 and the Milvus vector database, it achieves "What You Ask Is What You Get" with precise citation sourcing. The system supports Local Offline Mode (Milvus Lite), allowing deployment without complex servers.
 
@@ -12,7 +12,7 @@ Combined with the powerful semantic understanding of Baidu ERNIE 4.5 and the Mil
 - 🧠 Dual Baidu Engines:
       LLM: Powered by ERNIE-4.5-Turbo (via AIStudio API) for top-tier language understanding and generation.
 
-- OCR: Integrated with PaddleX PP-StructureV3 for complex layout recovery and automatic chart extraction.
+- OCR: Integrated with PaddleOCR PP-StructureV3 for complex layout recovery and automatic chart extraction.
 
 📂 Intelligent Document Processing:
         Auto-Deduplication: Automatically detects if a file already exists in the library during upload to avoid redundant computation.
@@ -29,7 +29,7 @@ Supports one-click switching between **Cloud Milvus** and **Local Offline Mode (
 ![System Config](images/演示1.png)
 
 ### 2. Knowledge Base & Intelligent Parsing
-Powered by the PaddleX V3 parsing engine with support for Chinese/English model switching. The system features a real-time progress bar for transparent processing.
+Powered by the PaddleOCR V3 parsing engine with support for Chinese/English model switching. The system features a real-time progress bar for transparent processing.
 ![Upload and Parse](images/演示2.png)
 
 ### 3. Document Management
@@ -48,7 +48,7 @@ The system automatically extracts images and charts (e.g., knowledge graph struc
 To experience the system's capabilities immediately without manually parsing documents, you can download my **Pre-built Demo Database**.
 This database contains processed academic papers on RAG/Short Text Clustering along with their extracted charts.
 
-1.  **Download**: [Click here to download (Google Drive)]([https://drive.google.com/drive/folders/1avg_m1YKMJPYz5OS9ScA_rXydJBZ7fse?usp=drive_link])
+1.  **Download**: [Click here to download (Google Drive)](https://drive.google.com/drive/folders/1avg_m1YKMJPYz5OS9ScA_rXydJBZ7fse?usp=drive_link)
 2.  **Unzip**: Extract the package to get the `my_knowledge_base.db` file and the `assets` folder.
 3.  **Install**: Copy both the file and the folder to the **root directory** of this project (overwrite existing ones).
 4.  **Run**: Execute `python main.py`. The system will automatically load the demo data, and you can start asking questions right away!

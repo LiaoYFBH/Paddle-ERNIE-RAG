@@ -1,21 +1,21 @@
-# 🚀 Paddle-RAG: 基于 ERNIE 4.5 与 PaddleX 的多文档智能分析系统
+[English](README_EN.md) | [中文](README.md)
+# 🚀 Paddle-RAG: 基于 ERNIE 4.5 与 PaddleOCR 的多文档智能分析系统
 
 <center>
-一个集成了百度文心一言 (ERNIE 4.5) 大模型与 PaddleX 高精度文档解析技术的本地化 RAG 知识库系统。
+一个集成了百度文心一言 (ERNIE 4.5) 大模型与 PaddleOCR 高精度文档解析技术的本地化 RAG 知识库系统。
 </center>
 
-[English Version](README_EN.md)
 
 
 ## 📖 项目简介
-本项目是一个高性能的文档问答系统（RAG），专为处理复杂的学术论文和技术文档设计。不同于传统的基于 LangChain 的简单文本切分，本项目深度集成了 PaddleX (PP-StructureV3) 智能文档解析引擎，能够精准识别 PDF 中的版面布局、表格、公式和图片。
+本项目是一个高性能的文档问答系统（RAG），专为处理复杂的学术论文和技术文档设计。不同于传统的基于 LangChain 的简单文本切分，本项目深度集成了 PaddleOCR (PP-StructureV3) 智能文档解析引擎，能够精准识别 PDF 中的版面布局、表格、公式和图片。
 
 结合 百度 ERNIE 4.5 的强大语义理解能力和 Milvus 向量数据库，实现了“所问即所得”的精准溯源问答。支持本地离线模式 (Milvus Lite)，无需复杂服务器即可部署。
 
 ## ✨ 核心特性
 - 🧠 百度双引擎驱动：
   - LLM: 接入 ERNIE-4.5-Turbo (通过 AIStudio API)，具备顶尖的中文理解与生成能力。
-  - OCR: 集成 PaddleX PP-StructureV3，支持复杂版面还原，自动提取图表。
+  - OCR: 集成 PaddleOCR PP-StructureV3，支持复杂版面还原，自动提取图表。
 - 📂 智能文档处理：
   - 自动去重：上传时自动检测库中是否已存在同名文件，避免重复计算。
   - 精准页码索引：基于页面的动态切分策略，回答中包含确切的页码引用（如 P1, P2），拒绝幻觉。
@@ -28,7 +28,7 @@
 ![系统配置](images/演示1.png)
 
 ### 2. 知识库构建与智能解析
-基于 PaddleX V3 的智能解析引擎，支持中/英文模型切换。系统配备实时进度条，解析过程透明化。
+基于 PaddleOCR V3 的智能解析引擎，支持中/英文模型切换。系统配备实时进度条，解析过程透明化。
 ![上传与解析](images/演示2.png)
 
 ### 3. 全局文档管理
@@ -47,7 +47,7 @@
 如果您不想手动上传和解析文档，可以直接下载我制作好的**演示数据库**，解压后即可直接提问。
 该数据库包含了多篇关于 RAG 和短文本聚类的学术论文，及其提取的图表数据。
 
-1.  **下载数据包**：[点击这里下载 (Google Drive)]([https://drive.google.com/drive/folders/1avg_m1YKMJPYz5OS9ScA_rXydJBZ7fse?usp=drive_link])
+1.  **下载数据包**：[点击这里下载 (Google Drive)](https://drive.google.com/drive/folders/1avg_m1YKMJPYz5OS9ScA_rXydJBZ7fse?usp=drive_link)
 2.  **解压文件**：将压缩包解压，您会得到一个 `my_knowledge_base.db` 文件和一个 `assets` 文件夹。
 3.  **覆盖安装**：将上述文件和文件夹直接复制到本项目的**根目录**下（覆盖同名文件）。
 4.  **运行程序**：执行 `python main.py`，系统将自动加载演示数据，您可以直接开始提问！
@@ -73,8 +73,8 @@ pip install -r requirements.txt
 python -m pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
 
 
-# 安装 PaddleX
-pip install paddlex
+# 安装 PaddleOCR
+pip install PaddleOCR
 ```
 
 ### 3. 启动系统
