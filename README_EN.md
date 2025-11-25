@@ -1,5 +1,5 @@
 # 🚀 Paddle-RAG: Multi-Document Analysis System with ERNIE 4.5 & PaddleX
-
+[中文文档](README.md)
 ## 📖 Introduction
 
 This project is a high-performance Retrieval-Augmented Generation (RAG) system designed for complex academic papers and technical documents. Unlike traditional LangChain-based text splitting, this project deeply integrates the PaddleX (PP-StructureV3) intelligent document parsing engine, which can accurately recognize layout, tables, formulas, and images within PDFs.
@@ -40,6 +40,27 @@ Precise Page Indexing: Dynamic chunking strategy based on pages ensures answers 
 
 5. **Charts & Knowledge Fusion**
    The system automatically extracts images and charts (e.g., knowledge graph structures, statistical charts) from PDFs. Relevant images are automatically displayed on the right side when answering questions to assist understanding.
+## 📸 Feature Showcase
+
+### 1. Configuration & Local Mode
+Supports one-click switching between **Cloud Milvus** and **Local Offline Mode (Milvus Lite)**. Simply configure your Baidu AIStudio and Qianfan API Keys to start, keeping data under your control.
+![System Config](images/演示1.png)
+
+### 2. Knowledge Base & Intelligent Parsing
+Powered by the PaddleX V3 parsing engine with support for Chinese/English model switching. The system features a real-time progress bar for transparent processing.
+![Upload and Parse](images/演示2.jpg)
+
+### 3. Document Management
+Supports multiple Collection management and viewing of all documents in the library. Supports macro Q&A on "All Documents" or deep reading focused on a "Single Document".
+![Document List](images/演示3.png)
+
+### 4. Precision Q&A with Citations
+After asking a question, the system displays retrieved reference chunks marked with **precise page numbers** and **relevance scores**. Click to verify the source.
+![Q&A](images/演示4.jpg)
+
+### 5. Charts & Knowledge Fusion
+The system automatically extracts images and charts (e.g., knowledge graph structures, statistical charts) from PDFs. Relevant images are automatically displayed on the right side when answering questions to assist understanding.
+![Chart Analysis](images/演示5.jpg)
 ## 📥 Quick Start (Pre-built Database)
 
 To experience the system's capabilities immediately without manually parsing documents, you can download my **Pre-built Demo Database**.
