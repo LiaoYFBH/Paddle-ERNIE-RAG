@@ -37,7 +37,7 @@ Supports multiple Collection management and viewing of all documents in the libr
 ![Document List](images/演示3.png)
 
 ### 4. Precision Q&A with Citations
-After asking a question, the system displays retrieved reference chunks marked with **precise page numbers** and **relevance scores**. Click to verify the source.
+After asking a question, the system displays retrieved reference chunks marked with **precise page numbers** and **relevance scores**. 
 ![Q&A](images/演示4.png)
 
 ### 5. Charts & Knowledge Fusion
