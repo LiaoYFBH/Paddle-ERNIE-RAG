@@ -2,7 +2,7 @@ import os
 import logging
 import random
 from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
-from ernie_client import ERNIEClient
+from utils.ernie_client import ERNIEClient
 
 # 配置日志
 logger = logging.getLogger("vector_store")
