@@ -84,6 +84,7 @@ pip install -r requirements.txt
 # 安装 PaddlePaddle (CPU版示例，GPU版请参考官网)
 python -m pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
 
+
 # 安装 PaddleX
 pip install paddlex
 ```

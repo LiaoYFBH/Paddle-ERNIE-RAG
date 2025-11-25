@@ -92,6 +92,7 @@ cd paddle-rag-system
 # Basic requirements
 pip install -r requirements.txt
 
+
 # Install PaddlePaddle (CPU example, see official site for GPU)
 python -m pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
 
