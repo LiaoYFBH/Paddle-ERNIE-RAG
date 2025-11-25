@@ -60,8 +60,8 @@
 
 ### 1. 克隆仓库
 ```bash
-git clone https://github.com/your-username/paddle-rag-system.git
-cd paddle-rag-system
+git clone git@github.com:LiaoYFBH/Paddle-ERNIE-RAG.git
+cd Paddle-ERNIE-RAG
 ```
 
 ### 2. 安装依赖

@@ -65,8 +65,8 @@ This database contains processed academic papers on RAG/Short Text Clustering al
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/your-username/paddle-rag-system.git
-cd paddle-rag-system
+git clone git@github.com:LiaoYFBH/Paddle-ERNIE-RAG.git
+cd Paddle-ERNIE-RAG
 ```
 
 ### 2. Install Dependencies
@@ -75,12 +75,8 @@ cd paddle-rag-system
 # Basic requirements
 pip install -r requirements.txt
 
-
 # Install PaddlePaddle (CPU example, see official site for GPU)
 python -m pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
-
-# Install PaddleX
-pip install paddlex
 ```
 
 ### 3. Launch System
