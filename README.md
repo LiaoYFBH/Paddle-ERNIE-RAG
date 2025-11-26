@@ -88,6 +88,7 @@ python main.py
 ```env
 AISTUDIO_ACCESS_TOKEN=your_aistudio_token
 QIANFAN_API_KEY=your_qianfan_key
+OCR_API_URL=xxx
 # 可选：如果使用云端 Milvus
 MILVUS_URI=https://...
 MILVUS_TOKEN=...

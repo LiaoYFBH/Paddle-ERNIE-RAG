@@ -94,6 +94,7 @@ You can fill in the "System Configuration" panel after starting the UI, or creat
 ```env
 AISTUDIO_ACCESS_TOKEN=your_aistudio_token
 QIANFAN_API_KEY=your_qianfan_key
+OCR_API_URL=xxx
 # Optional: If using Cloud Milvus
 MILVUS_URI=https://...
 MILVUS_TOKEN=...
