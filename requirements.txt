@@ -2,11 +2,8 @@ fuzzywuzzy==0.18.0
 gradio==5.49.1
 gradio_client==1.13.3
 milvus==2.3.5
-milvus-lite==2.5.1
-paddlenlp==2.6.1
-paddleocr==3.3.1
-paddlepaddle==3.2.1
-paddlex==3.3.6
-pandas==2.3.3
+#milvus-lite==2.5.1
 protobuf==3.20.2
 pymilvus==2.5.0
+requests==2.32.5
+openai==2.8.1
