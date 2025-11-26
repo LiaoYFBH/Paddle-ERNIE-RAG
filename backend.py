@@ -1,0 +1,556 @@
+import os
+import sys
+import logging
+import shutil
+import base64
+import time
+import requests
+import json
+from dotenv import load_dotenv
+
+# 引入工具类
+try:
+    from utils.vector_store import MilvusVectorStore
+    from utils.ernie_client import ERNIEClient
+    from utils.reranker_v2 import RerankerAndFilterV2
+except ImportError as e:
+    print(f"❌ 导入工具类失败: {e}")
+    exit(1)
+
+from pymilvus import utility, connections
+import gradio as gr
+
+load_dotenv()
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# 屏蔽无关日志
+silence_libs = ["httpx", "httpcore", "urllib3"]
+for lib in silence_libs:
+    logging.getLogger(lib).setLevel(logging.ERROR)
+
+# 目录准备
+ASSET_DIR = "assets"
+os.makedirs(ASSET_DIR, exist_ok=True)
+
+# === 全局状态变量 ===
+ernie = None
+milvus_store = None
+reranker_filter = None
+known_collections = {}
+system_ready = False
+
+# === 核心类: 在线 PDF 解析器 ===
+class OnlinePDFParser:
+    """处理云端 API 调用"""
+    def __init__(self, api_url, token):
+        self.api_url = api_url
+        self.token = token
+
+    def predict(self, file_path):
+        if not self.token:
+            return None, "❌ 错误: 未配置 Token"
+        if not self.api_url:
+            return None, "❌ 错误: 未配置 API URL"
+        
+        file_name = os.path.basename(file_path)
+        print(f"☁️ [Online] 正在请求在线 OCR API: {file_name}")
+        
+        try:
+            with open(file_path, "rb") as file:
+                file_bytes = file.read()
+                file_data = base64.b64encode(file_bytes).decode("ascii")
+
+            # 简单判断文件类型
+            ext = os.path.splitext(file_name)[1].lower()
+            file_type = 0 if ext == '.pdf' else 1 
+            
+            payload = {
+                "file": file_data,
+                "fileType": file_type,
+                "useDocOrientationClassify": False,
+                "useDocUnwarping": False,
+                "useTextlineOrientation": False,
+                "useChartRecognition": False,
+            }
+            
+            headers = {
+                "Authorization": f"token {self.token}", 
+                "Content-Type": "application/json"
+            }
+            
+            # 大文件上传需要较长时间，超时设为 600秒
+            response = requests.post(self.api_url, json=payload, headers=headers, timeout=600)
+            
+            if response.status_code != 200:
+                print(f"❌ [API Error] HTTP {response.status_code}: {response.text[:100]}")
+                return None, f"API HTTP错误 ({response.status_code})"
+            
+            res_json = response.json()
+            
+            if "errorCode" in res_json and res_json["errorCode"]:
+                err_msg = res_json.get('errorMsg', '未知错误')
+                print(f"❌ [API Error] 业务错误: {err_msg}")
+                return None, f"API 业务错误: {err_msg}"
+
+            api_result = res_json.get("result", {})
+            parsing_results = api_result.get("layoutParsingResults", [])
+            
+            if not parsing_results:
+                if isinstance(api_result, list):
+                     return None, "⚠️ 检测到纯 OCR 接口返回，本系统需要 Layout Parsing 结构。"
+                print(f"⚠️ [API Warning] layoutParsingResults 为空。Keys: {list(res_json.keys())}")
+                return None, "API 返回结果为空 (可能文件无法解析)"
+
+            class MockResult:
+                def __init__(self, md_text, imgs):
+                    self.markdown = {
+                        'markdown_texts': md_text,
+                        'markdown_images': imgs
+                    }
+
+            mock_outputs = []
+            
+            for i, item in enumerate(parsing_results):
+                md_data = item.get("markdown", {})
+                raw_text = md_data.get("text", "")
+                
+                # 处理图片下载
+                image_urls = md_data.get("images", {})
+                processed_images = {}
+                
+                if image_urls:
+                    print(f"   ↳ 正在下载第 {i+1} 部分的 {len(image_urls)} 张图片...")
+                    for img_key, img_url in image_urls.items():
+                        try:
+                            img_resp = requests.get(img_url, timeout=30)
+                            if img_resp.status_code == 200:
+                                b64_str = base64.b64encode(img_resp.content).decode('utf-8')
+                                processed_images[img_key] = b64_str
+                        except Exception as e: pass
+                
+                mock_outputs.append(MockResult(raw_text, processed_images))
+            
+            return mock_outputs, "Success"
+
+        except Exception as e:
+            return None, f"请求异常: {str(e)}"
+
+# === 文本处理工具 ===
+def split_text_into_chunks(text: str, chunk_size: int = 300, overlap: int = 120) -> list:
+    if not text: return []
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    chunks = []
+    current_chunk = []
+    current_length = 0
+    for line in lines:
+        while len(line) > chunk_size:
+            part = line[:chunk_size]
+            line = line[chunk_size:]
+            if current_length + len(part) > chunk_size and current_chunk:
+                chunks.append("\n".join(current_chunk))
+                current_chunk = []
+                current_length = 0
+            current_chunk.append(part)
+            current_length += len(part)
+        if current_length + len(line) > chunk_size and current_chunk:
+            chunks.append("\n".join(current_chunk))
+            overlap_text = current_chunk[-1][-overlap:] if current_chunk else ""
+            current_chunk = [overlap_text] if overlap_text else []
+            current_length = len(overlap_text)
+        current_chunk.append(line)
+        current_length += len(line)
+    if current_chunk:
+        content = "\n".join(current_chunk).strip()
+        if content: chunks.append(content)
+    return chunks
+
+def check_ready():
+    if not system_ready: return False, "⚠️ 系统未连接"
+    return True, ""
+
+def scan_remote_collections():
+    global known_collections
+    try:
+        alias = f"scan_{int(time.time())}"
+        connections.connect(alias=alias, uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"))
+        all_colls = utility.list_collections(using=alias)
+        connections.disconnect(alias)
+        for name in all_colls:
+            if name not in known_collections:
+                known_collections[name] = MilvusVectorStore(
+                    uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
+                    collection_name=name, embedding_service_url="https://aistudio.baidu.com/llm/lmapi/v3",
+                    qianfan_api_key=os.environ.get("AISTUDIO_ACCESS_TOKEN")
+                )
+        return list(known_collections.keys())
+    except:
+        return list(known_collections.keys())
+
+def initialize_system(aistudio_token, qianfan_key, milvus_uri, milvus_token):
+    global ernie, milvus_store, reranker_filter, system_ready, known_collections
+
+    aistudio_token = aistudio_token.strip() if aistudio_token else ""
+    qianfan_key = qianfan_key.strip() if qianfan_key else ""
+    milvus_uri = milvus_uri.strip() if milvus_uri else ""
+    milvus_token = milvus_token.strip() if milvus_token else ""
+
+    is_local_mode = milvus_uri.endswith(".db")
+    basic_check = all([aistudio_token, qianfan_key, milvus_uri])
+    token_check = True if is_local_mode else bool(milvus_token)
+
+    if not (basic_check and token_check):
+        return "❌ 请填写必要信息", gr.update(), gr.update(), gr.update()
+
+    try:
+        os.environ["AISTUDIO_ACCESS_TOKEN"] = aistudio_token
+        os.environ["QIANFAN_API_KEY"] = qianfan_key
+        os.environ["MILVUS_URI"] = milvus_uri
+        if milvus_token:
+            os.environ["MILVUS_TOKEN"] = milvus_token
+        else:
+            os.environ.pop("MILVUS_TOKEN", None)
+
+        try:
+            if connections.has_connection("default"):
+                connections.disconnect("default")
+        except: pass
+
+        known_collections = {}
+        ernie = ERNIEClient()
+        reranker_filter = RerankerAndFilterV2()
+
+        milvus_store = MilvusVectorStore(
+            uri=milvus_uri,
+            token=milvus_token, 
+            collection_name="pdf_qa_collection_paddle_v3", 
+            embedding_service_url="https://aistudio.baidu.com/llm/lmapi/v3",
+            qianfan_api_key=aistudio_token
+        )
+        
+        known_collections = {milvus_store.collection_name: milvus_store}
+        try: scan_remote_collections()
+        except: pass
+        
+        cols = list(known_collections.keys())
+        default_col = cols[0] if cols else None
+        
+        system_ready = True
+        return (
+            "✅ 连接成功", 
+            gr.update(choices=cols, value=default_col),
+            gr.update(choices=cols, value=default_col),
+            gr.update(choices=cols, value=default_col)
+        )
+    except Exception as e:
+        return f"❌ 失败: {str(e)}", gr.update(), gr.update(), gr.update()
+
+# 🌟 [修改] 删除了 ocr_mode, ocr_lang_choice 参数
+def process_uploaded_pdf(files, collection_name, custom_ocr_token, custom_ocr_url, progress=gr.Progress()):
+    if collection_name: collection_name = str(collection_name).strip()
+    
+    ready, msg = check_ready()
+    if not ready: return msg
+    if not files: return "⚠️ 请上传 PDF"
+    
+    if collection_name not in known_collections:
+        create_collection_ui(collection_name)
+    
+    target_store = known_collections[collection_name]
+    results = [] 
+    col_img_dir = os.path.join(ASSET_DIR, collection_name)
+    try: os.makedirs(col_img_dir, exist_ok=True)
+    except: pass
+    
+    # 🌟 强制使用在线模式
+    print(f"\n[System] 初始化在线 API 解析器...")
+    token = custom_ocr_token.strip() if custom_ocr_token else os.environ.get("AISTUDIO_ACCESS_TOKEN")
+    api_url = custom_ocr_url.strip() if custom_ocr_url else os.environ.get("OCR_API_URL")
+    
+    if not api_url:
+        return "❌ 错误: 未配置 OCR API URL！请在 .env 中配置或在 UI 中填写。"
+        
+    online_parser = OnlinePDFParser(api_url, token)
+
+    print(f"🔍 检查文档列表...")
+    try: existing_files = set(target_store.list_documents())
+    except: existing_files = set()
+
+    for file_path in progress.tqdm(files, desc="文档解析中"):
+        path_str = file_path.name if hasattr(file_path, 'name') else file_path
+        filename = os.path.basename(path_str)
+        abs_path = os.path.abspath(path_str)
+    
+        if filename in existing_files:
+            results.append(f"⏩ {filename} (已存在)")
+            continue
+        
+        file_img_dir = os.path.join(col_img_dir, os.path.splitext(filename)[0])
+        if os.path.exists(file_img_dir): shutil.rmtree(file_img_dir)
+        os.makedirs(file_img_dir, exist_ok=True)
+        
+        print(f"\n🚀 开始解析文件: {filename} (模式: ☁️ Online)")
+        
+        output = []
+        try:
+            # 只调用在线
+            output, err_msg = online_parser.predict(abs_path)
+            if output is None:
+                print(f"❌ 解析失败: {err_msg}") 
+                results.append(f"❌ {filename}: {err_msg}")
+                continue
+        except Exception as e:
+            err_msg = f"❌ {filename}: 异常 ({str(e)})"
+            print(err_msg)
+            results.append(err_msg)
+            continue
+
+        file_chunk_count = 0 
+        if output:
+            for page_idx, res in enumerate(output):
+                md_data = res.markdown
+                page_text = md_data.get('markdown_texts', '') 
+                page_images = md_data.get('markdown_images', {})
+             
+                for img_path_key, img_val in page_images.items():
+                    try:
+                        base_name = os.path.basename(img_path_key)
+                        sname = f"p{page_idx}_{int(time.time())}_{base_name}"
+                        if not sname.endswith(('.jpg', '.png')): sname += ".jpg"
+                        spath = os.path.join(file_img_dir, sname)
+
+                        if isinstance(img_val, str):
+                            with open(spath, "wb") as f: f.write(base64.b64decode(img_val))
+                        elif hasattr(img_val, 'save'):
+                            img_val.save(spath)
+                        
+                        page_text = page_text.replace(img_path_key, f"[图表: {sname}]")
+                    except Exception as e: pass
+                
+                if not page_text.strip(): continue
+
+                page_chunks = split_text_into_chunks(page_text)
+                
+                docs = []
+                for cid, chunk in enumerate(page_chunks):
+                    # 🌟 安全截断逻辑 (保留)
+                    header = f"文档: {filename} (P{page_idx+1})\n"
+                    safe_limit = 380 - len(header)
+                    
+                    safe_chunk = chunk
+                    if len(chunk) > safe_limit:
+                        safe_chunk = chunk[:safe_limit] + "..."
+                        
+                    docs.append({
+                        "filename": filename, 
+                        "page": page_idx, 
+                        "content": f"{header}{safe_chunk}", 
+                        "chunk_id": file_chunk_count + cid
+                    })
+                
+                if docs:
+                    target_store.insert_documents(docs)
+                    file_chunk_count += len(docs)
+
+        if file_chunk_count > 0:
+            success_msg = f"✅ {filename} (提取 {file_chunk_count} 片段)"
+            results.append(success_msg)
+        else:
+            fail_msg = f"❌ {filename}: 未提取到有效内容"
+            print(fail_msg)
+            results.append(fail_msg)
+            
+        time.sleep(0.05)
+            
+    return "\n".join(results)
+
+def ask_question_logic(question, collection_name, target_filename=None):
+    ready, msg = check_ready()
+    if not ready: return msg, "N/A"
+    if not question.strip(): return "请输入问题", "0.0%"
+    
+    # 双向翻译逻辑 (保留)
+    expanded_query = question
+    try:
+        has_chinese = any('\u4e00' <= char <= '\u9fff' for char in question)
+        prompt = f"Translate the following Chinese query into English directly without explanation:\n{question}" if has_chinese else f"将以下英文问题直接翻译成中文，不要解释：\n{question}"
+        
+        if ernie:
+            translated_part = ernie.chat([{"role": "user", "content": prompt}])
+            if translated_part:
+                expanded_query = f"{question} {translated_part}"
+                print(f"✅ [Query] 双语增强后: {expanded_query}")
+    except Exception as e: pass
+
+    target_store = known_collections.get(collection_name, milvus_store)
+    search_kwargs = {"top_k": 60}
+    if target_filename and target_filename != "全部文档 (Global QA)":
+        search_kwargs["expr"] = f"filename == '{target_filename}'"
+        
+    retrieved = target_store.search(expanded_query, **search_kwargs)
+    if not retrieved: return "未找到相关内容。", "0.0%"
+    
+    processed, _ = reranker_filter.process(expanded_query, retrieved)
+    final = processed[:22]
+    top_score = final[0].get('composite_score', 0) if final else 0
+    metric = f"{min(100, top_score/1.2):.1f}%"
+    
+    answer = ernie.answer_question(question, final)
+    seen = set()
+    sources = "\n\n📚 **参考来源:**\n"
+    for c in final:
+        page_num = c.get('page', 0) + 1
+        fname = c.get('filename', '未知文档')
+        key = f"{fname} (P{page_num})"
+        if key not in seen:
+            sources += f"- {key} [Rel:{c.get('composite_score',0):.0f}]\n"
+            seen.add(key)
+            
+    return answer + sources, metric
+
+def chat_respond(message, history, collection_name, target_filename, img_context):
+    if not message: return history, history, "", "N/A", img_context
+    if not collection_name: 
+        history.append({"role": "user", "content": message})
+        history.append({"role": "assistant", "content": "⚠️ 请先选择知识库"})
+        return history, history, "", "N/A", img_context
+
+    full_query = message
+    if img_context: 
+        full_query = f"{img_context}\n用户问题: {message}"
+        img_context = "" 
+    
+    answer, metric = ask_question_logic(full_query, collection_name, target_filename)
+    history.append({"role": "user", "content": message})
+    history.append({"role": "assistant", "content": answer})
+    return history, history, "", metric, img_context
+
+def analyze_doc_and_images(collection_name, filename):
+    ready, msg = check_ready()
+    if not ready: return "系统未连接", []
+    if not filename or filename == "全部文档 (Global QA)": return "请选择具体文档...", []
+
+    store = known_collections.get(collection_name, milvus_store)
+    text = store.get_document_content(filename)
+    
+    if text:
+        summary = ernie.generate_summary(text[:3000])
+    else:
+        summary = "无法获取内容 (可能是纯图片文档或解析失败)"
+    
+    images = []
+    file_img_path = os.path.join(ASSET_DIR, collection_name, os.path.splitext(filename)[0])
+    
+    if os.path.exists(file_img_path):
+        for img_file in sorted(os.listdir(file_img_path)):
+            if img_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                if "formula" in img_file.lower() or "img_in_for" in img_file.lower():
+                    continue
+                full_path = os.path.join(file_img_path, img_file)
+                images.append((full_path, img_file))
+                
+    return f"📄 **{filename}**\n\n{summary}", images
+
+def update_file_list(collection_name):
+    ready, msg = check_ready()
+    if not ready: return gr.update(choices=[], label="2. 文档 (未连接)")
+    
+    store = known_collections.get(collection_name, milvus_store)
+    if not store: return gr.update(choices=[], label="2. 文档 (库不存在)")
+    
+    files = store.list_documents()
+    count = len(files)
+    choices = ["全部文档 (Global QA)"] + files
+    return gr.update(choices=choices, value=choices[0], label=f"2. 文档 (共 {count} 个)")
+
+def update_file_list_for_delete(collection_name):
+    ready, msg = check_ready()
+    if not ready or not collection_name: 
+        return gr.update(choices=[], label="选择要删除的文件")
+        
+    store = known_collections.get(collection_name, milvus_store)
+    files = store.list_documents()
+    count = len(files)
+    return gr.update(choices=files, value=None, label=f"选择要删除的文件 (当前库共 {count} 个)")
+
+def run_recall_test(collection_name):
+    ready, msg = check_ready()
+    if not ready: return msg
+    if not collection_name: return "❌ 请先选择一个知识库"
+
+    store = known_collections.get(collection_name, milvus_store)
+    return store.test_self_recall(sample_size=20)
+
+def create_collection_ui(new_name):
+    ready, msg = check_ready()
+    if not ready: return gr.update(), msg
+    if not new_name: return gr.update(), "❌ 名称不能为空"
+    try:
+        new_store = MilvusVectorStore(
+            uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
+            collection_name=new_name, embedding_service_url="https://aistudio.baidu.com/llm/lmapi/v3",
+            qianfan_api_key=os.environ.get("AISTUDIO_ACCESS_TOKEN")
+        )
+        dummy = [{"filename":"_init","page":0,"content":"init","chunk_id":0}]
+        new_store.insert_documents(dummy)
+        known_collections[new_name] = new_store
+        updated = list(known_collections.keys())
+        return gr.update(choices=updated, value=new_name), f"✅ 创建成功: {new_name}"
+    except Exception as e:
+        return gr.update(), f"❌ 创建失败: {e}"
+
+def delete_single_file(collection_name, filename):
+    ready, msg = check_ready()
+    if not ready: return msg
+    if not collection_name: return "❌ 请先选择知识库"
+    if not filename: return "❌ 请选择要删除的文件"
+    
+    store = known_collections.get(collection_name, milvus_store)
+    msg = store.delete_document(filename)
+    
+    try:
+        img_dir = os.path.join(ASSET_DIR, collection_name, os.path.splitext(filename)[0])
+        if os.path.exists(img_dir):
+            shutil.rmtree(img_dir)
+            msg += " (关联图片已清理)"
+    except: pass
+    
+    return msg
+
+def delete_collection_ui(name):
+    ready, msg = check_ready()
+    if not ready: return gr.update(), msg
+    if not name: return gr.update(), "请选择要删除的库"
+    
+    alias = "delete_conn"
+    try:
+        connections.connect(alias=alias, uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"))
+        
+        if utility.has_collection(name, using=alias): 
+            utility.drop_collection(name, using=alias)
+        
+        if name in known_collections: 
+            del known_collections[name]
+        
+        img_path = os.path.join(ASSET_DIR, name)
+        if os.path.exists(img_path): shutil.rmtree(img_path)
+        
+        updated = list(known_collections.keys())
+        val = updated[0] if updated else None
+        return gr.update(choices=updated, value=val), f"🗑️ 已删除: {name}"
+    
+    except Exception as e:
+        return gr.update(), f"❌ 删除失败: {e}"
+    
+    finally:
+        try:
+            connections.disconnect(alias)
+        except: pass
+
+def refresh_all_dropdowns():
+    if not system_ready: return gr.update(), gr.update(), gr.update()
+    new_cols = scan_remote_collections()
+    return (
+        gr.update(choices=new_cols), 
+        gr.update(choices=new_cols), 
+        gr.update(choices=new_cols)
+    )
