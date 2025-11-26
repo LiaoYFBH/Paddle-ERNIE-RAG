@@ -49,8 +49,8 @@ with gr.Blocks(title="多文档智能分析与问答系统", theme=theme, css=cu
     # 顶部 Banner
     gr.HTML("""
         <div class="header-banner">
-            <div class="header-title">🚀 多文档智能分析与问答系统 (Pro)</div>
-            <div class="header-subtitle"> Cloud OCR  · ERNIE 4.5 · Milvus</div>
+            <div class="header-title">🚀 多文档智能分析与问答系统</div>
+            <div class="header-subtitle"> PPStructureV3  · ERNIE 4.5 · Milvus</div>
         </div>
     """)
     
