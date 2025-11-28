@@ -6,6 +6,8 @@ import base64
 import time
 import requests
 import json
+import re
+import binascii
 from dotenv import load_dotenv
 
 # 引入工具类
@@ -22,6 +24,29 @@ from pymilvus import utility, connections
 import gradio as gr
 
 load_dotenv()
+def encode_name(ui_name):
+    """把中文名称转为 Milvus 合法的 Hex 字符串 (例如: '测试' -> 'kb_e6b58b...')"""
+    if not ui_name: return ""
+    # 如果本身就是纯英文/数字/下划线，且符合规范，直接返回 (兼容旧库)
+    if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', ui_name):
+        return ui_name
+    
+    # 否则进行 Hex 编码，并加前缀 kb_ 保证字母开头
+    hex_str = binascii.hexlify(ui_name.encode('utf-8')).decode('utf-8')
+    return f"kb_{hex_str}"
+
+def decode_name(real_name):
+    """把 Hex 字符串转回中文"""
+    if not real_name: return ""
+    if real_name.startswith("kb_"):
+        try:
+            # 去掉前缀，尝试反解
+            hex_str = real_name[3:]
+            return binascii.unhexlify(hex_str).decode('utf-8')
+        except:
+            # 解码失败（可能是用户自己手动建的以 kb_ 开头的英文库），返回原名
+            return real_name
+    return real_name
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 屏蔽无关日志
@@ -176,13 +201,25 @@ def scan_remote_collections():
         connections.connect(alias=alias, uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"))
         all_colls = utility.list_collections(using=alias)
         connections.disconnect(alias)
-        for name in all_colls:
-            if name not in known_collections:
-                # 传入全局配置的 ernie 客户端
-                known_collections[name] = MilvusVectorStore(
-                    uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
-                    collection_name=name, embedding_client=ernie
+        for real_name in all_colls:
+            # 🟢 解码：获取 UI 显示用的名字
+            ui_name = decode_name(real_name)
+            
+            if ui_name not in known_collections:
+                # 🟢 关键：字典 Key 用中文(ui_name)，但传给 Milvus 的参数用真名(real_name)
+                known_collections[ui_name] = MilvusVectorStore(
+                    uri=os.environ.get("MILVUS_URI"), 
+                    token=os.environ.get("MILVUS_TOKEN"),
+                    collection_name=real_name,  # <--- 这里必须是 encoded 的真名
+                    embedding_client=ernie
                 )
+        # for name in all_colls:
+            # if name not in known_collections:
+                # 传入全局配置的 ernie 客户端
+                # known_collections[name] = MilvusVectorStore(
+                #     uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
+                #     collection_name=name, embedding_client=ernie
+                # )
         return list(known_collections.keys())
     except:
         return list(known_collections.keys())
@@ -239,14 +276,26 @@ def initialize_system(
         reranker_filter = RerankerAndFilterV2()
 
         # 5. 初始化 Milvus Store (传入配置好的 ernie client)
+        # milvus_store = MilvusVectorStore(
+        #     uri=milvus_uri,
+        #     token=milvus_token, 
+        #     collection_name="默认知识库", 
+        #     embedding_client=ernie 
+        # )
+        
+        # known_collections = {milvus_store.collection_name: milvus_store}
+        default_ui_name = "默认知识库"
+        default_real_name = encode_name(default_ui_name)
+
         milvus_store = MilvusVectorStore(
             uri=milvus_uri,
             token=milvus_token, 
-            collection_name="pdf_qa_collection_paddle_v3", 
+            collection_name=default_real_name, # 使用编码后的名字
             embedding_client=ernie 
         )
         
-        known_collections = {milvus_store.collection_name: milvus_store}
+        # 存入字典
+        known_collections = {default_ui_name: milvus_store}
         try: scan_remote_collections()
         except: pass
         
@@ -433,7 +482,7 @@ def ask_question_logic(question, collection_name, target_filename=None):
     processed, _ = reranker_filter.process(expanded_query, retrieved)
     final = processed[:22]
     top_score = final[0].get('composite_score', 0) if final else 0
-    metric = f"{min(100, top_score/1.2):.1f}%"
+    metric = f"{min(100, top_score):.1f}%"
     
     answer = ernie.answer_question(question, final)
     seen = set()
@@ -443,7 +492,7 @@ def ask_question_logic(question, collection_name, target_filename=None):
         fname = c.get('filename', '未知文档')
         key = f"{fname} (P{page_num})"
         if key not in seen:
-            sources += f"- {key} [Rel:{c.get('composite_score',0):.0f}]\n"
+            sources += f"- {key} [相关性:{c.get('composite_score',0):.0f}%]\n"
             seen.add(key)
             
     return answer + sources, metric
@@ -526,15 +575,34 @@ def create_collection_ui(new_name):
     ready, msg = check_ready()
     if not ready: return gr.update(), msg
     if not new_name: return gr.update(), "❌ 名称不能为空"
+    # try:
+    #     # 传入全局配置的 ernie
+    #     new_store = MilvusVectorStore(
+    #         uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
+    #         collection_name=new_name, embedding_client=ernie
+    #     )
+    #     dummy = [{"filename":"_init","page":0,"content":"init","chunk_id":0}]
+    #     new_store.insert_documents(dummy)
+    #     known_collections[new_name] = new_store
+    #     updated = list(known_collections.keys())
+    #     return gr.update(choices=updated, value=new_name), f"✅ 创建成功: {new_name}"
+    real_milvus_name = encode_name(new_name)
+    
     try:
-        # 传入全局配置的 ernie
+        # 🟢 传给 Milvus 的是编码后的名字
         new_store = MilvusVectorStore(
-            uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
-            collection_name=new_name, embedding_client=ernie
+            uri=os.environ.get("MILVUS_URI"), 
+            token=os.environ.get("MILVUS_TOKEN"),
+            collection_name=real_milvus_name, # <--- 真实表名
+            embedding_client=ernie
         )
-        dummy = [{"filename":"_init","page":0,"content":"init","chunk_id":0}]
-        new_store.insert_documents(dummy)
+        # # 初始化一下
+        # dummy = [{"filename":"_init","page":0,"content":"init","chunk_id":0}]
+        # new_store.insert_documents(dummy)
+        
+        # 🟢 字典 Key 依然存中文 new_name，方便 UI 显示
         known_collections[new_name] = new_store
+        
         updated = list(known_collections.keys())
         return gr.update(choices=updated, value=new_name), f"✅ 创建成功: {new_name}"
     except Exception as e:

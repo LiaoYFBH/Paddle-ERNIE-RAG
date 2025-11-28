@@ -183,6 +183,34 @@ body, .gradio-container {
 .card-header { font-size: 16px; font-weight: 700; color: #1f2937; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
 
 footer { display: none !important; }
+
+/* =========== 🟢 侧边栏专属优化 =========== */
+/* 1. 放大正文字体 */
+.gradio-container .prose p, 
+.gradio-container .prose li {
+    font-size: 15px !important;
+    line-height: 1.6 !important;
+}
+
+/* 2. 放大标题 */
+.gradio-container .prose h1 { font-size: 24px !important; margin-bottom: 15px !important; }
+.gradio-container .prose h2 { font-size: 20px !important; margin-top: 20px !important; }
+.gradio-container .prose h3 { font-size: 17px !important; color: #4f46e5 !important; }
+
+/* 3. 强制表格可横向滚动 (防止意外截断) */
+.gradio-container .prose table {
+    display: block !important;
+    overflow-x: auto !important;
+    width: 100% !important;
+    white-space: nowrap !important; /* 防止强制换行 */
+}
+
+/* 4. 代码块样式微调 */
+.gradio-container .prose code {
+    font-size: 13px !important;
+    color: #c026d3 !important;
+    background: #fdf4ff !important;
+}
 """
 
 # ==============================================================================
@@ -202,7 +230,7 @@ theme = gr.themes.Soft(
 
 # === 工具函数 ===
 def load_tutorial_content():
-    file_path = "tutorial.md"
+    file_path = "tutorial/tutorial.md"
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
@@ -237,9 +265,9 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
     with gr.Tabs():
         
         # ============================================================
-        # Tab 1: 💬 智能对话
+        # Tab 1: 💬 智能问答
         # ============================================================
-        with gr.Tab("💬 智能对话"):
+        with gr.Tab("💬 智能问答"):
             
             with gr.Column(elem_classes="main-content"):
                 
@@ -398,15 +426,15 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
                     llm_api_base = gr.Textbox(
                         label="Base URL", 
                         value=os.getenv("LLM_API_BASE", "https://aistudio.baidu.com/llm/lmapi/v3"),
-                        info="默认千帆/AIStudio 地址"
+                        info="千帆/AIStudio URL"
                     )
                     llm_model = gr.Textbox(label="Model Name", value=os.getenv("LLM_MODEL", "ernie-4.5-turbo-128k-preview"))
                     
                     # 带链接的 Key
                     llm_api_key = create_masked_input(
                         "API Key", 
-                        os.getenv("LLM_API_KEY", os.getenv("AISTUDIO_ACCESS_TOKEN", "")), 
-                        link_info=("获取 Key", "https://aistudio.baidu.com/account/accessToken")
+                        os.getenv("LLM_API_KEY", os.getenv("AISTUDIO_ACCESS_TOKEN", ""))
+                        # link_info=("获取 Key", "https://aistudio.baidu.com/account/accessToken")
                     )
 
                 # === 2. Embedding 配置 ===
@@ -416,23 +444,23 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
                     embed_api_base = gr.Textbox(
                         label="Base URL", 
                         value=os.getenv("EMBED_API_BASE", "https://aistudio.baidu.com/llm/lmapi/v3"),
-                        info="默认千帆/AIStudio 地址"
+                        info="千帆/AIStudio URL"
                     )
                     embed_model = gr.Textbox(label="Model Name", value=os.getenv("EMBED_MODEL", "embedding-v1"))
                     
                     # 带链接的 Key
                     embed_api_key = create_masked_input(
                         "API Key", 
-                        os.getenv("EMBED_API_KEY", os.getenv("AISTUDIO_ACCESS_TOKEN", "")), 
-                        link_info=("获取 Key", "https://aistudio.baidu.com/account/accessToken")
+                        os.getenv("EMBED_API_KEY", os.getenv("AISTUDIO_ACCESS_TOKEN", ""))#, 
+                        # link_info=("获取 Key", "https://aistudio.baidu.com/account/accessToken")
                     )
 
             # === 3. OCR & Milvus 配置 ===
             with gr.Column(elem_classes="modern-card"):
-                gr.HTML('<div class="card-header"><span>🛠️</span> 基础设施配置</div>')
+                gr.HTML('<div class="card-header"><span>🛠️</span> 基础配置</div>')
                 with gr.Row():
                     with gr.Column(scale=1):
-                         ocr_url = gr.Textbox(label="OCR API URL", value=os.getenv("OCR_API_URL", ""), info="OCR 解析服务地址")
+                         ocr_url = gr.Textbox(label="OCR API URL", value=os.getenv("OCR_API_URL", ""), info="获取方式见教程")
                     with gr.Column(scale=1):
                          ocr_token = create_masked_input(
                              "OCR Token", 
@@ -450,7 +478,7 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
                         tk_token = create_masked_input(
                             "Milvus Token", 
                             os.getenv("MILVUS_TOKEN", ""),
-                            link_info=("获取 Token", "https://cloud.zilliz.com/")
+                            link_info=("获取 Token(详见教程)", "https://cloud.zilliz.com/")
                         )
 
             # === 4. 底部保存栏 ===

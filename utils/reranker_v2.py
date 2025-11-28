@@ -71,9 +71,22 @@ class RerankerAndFilterV2:
             length_score = 100 - min(50, (content_len - 600) / 20)
         
         # 专有名词加分
-        query_proper_nouns = set(re.findall(r'\b[A-Z][a-z]+\b|[A-Z]{2,}', query))
-        content_proper_nouns = set(re.findall(r'\b[A-Z][a-z]+\b|[A-Z]{2,}', content))
+        # query_proper_nouns = set(re.findall(r'\b[A-Z][a-z]+\b|[A-Z]{2,}', query))
+        # content_proper_nouns = set(re.findall(r'\b[A-Z][a-z]+\b|[A-Z]{2,}', content))
+        # 1. 英文正则保持不变
+        en_pattern = r'\b[A-Z][a-z]+\b|[A-Z]{2,}'
         
+        # 2. 简单的中文关键词提取（这里用双字以上匹配作为简易替代）
+        # 如果 query 只有中文，把所有长度>=2的词都视为潜在“关键实体”进行匹配
+        def extract_potential_nouns(text):
+            res = set(re.findall(en_pattern, text))
+            # 提取中文连续字符 (简单粗暴，仅供优化参考)
+            zh_words = [w for w in re.split(r'[^\u4e00-\u9fa5]', text) if len(w) >= 2]
+            res.update(zh_words)
+            return res
+
+        query_proper_nouns = extract_potential_nouns(query)
+        content_proper_nouns = extract_potential_nouns(content)        
         proper_noun_bonus = 0
         if query_proper_nouns:
             hits = len(query_proper_nouns & content_proper_nouns)
