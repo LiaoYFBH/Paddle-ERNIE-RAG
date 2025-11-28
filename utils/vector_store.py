@@ -10,18 +10,27 @@ logger = logging.getLogger("vector_store")
 logger.setLevel(logging.INFO)
 
 class MilvusVectorStore:
-    def __init__(self, uri, token, collection_name, embedding_service_url=None, qianfan_api_key=None):
+    def __init__(self, uri, token, collection_name, embedding_client=None, embedding_service_url=None, qianfan_api_key=None):
         self.collection_name = collection_name
         self.uri = uri
         self.token = token
-        self.embedding_client = ERNIEClient() 
+        
+        # 优先使用传入的已配置好的 Client
+        if embedding_client:
+            self.embedding_client = embedding_client
+        else:
+            # 兼容旧代码或自动扫描时的默认行为
+            self.embedding_client = ERNIEClient(
+                embed_api_base=embedding_service_url,
+                embed_api_key=qianfan_api_key
+            )
+            
         self._connect_milvus()
         self._init_collection()
 
     def _connect_milvus(self):
         try:
             if connections.has_connection("default"):
-                # logger.info(f"♻️ 检测到已有连接，复用 default 连接")
                 return
             
             if self.uri.endswith(".db"):
@@ -33,7 +42,6 @@ class MilvusVectorStore:
         except Exception as e:
             logger.error(f"❌ Milvus 连接失败: {e}")
             if not self.uri.endswith(".db") and not connections.has_connection("default"):
-                # 尝试创建临时本地连接作为保底
                 try:
                     connections.connect("default", uri="./demo_data.db")
                 except: pass
@@ -75,14 +83,9 @@ class MilvusVectorStore:
             logger.error(f"Embedding error: {e}")
             return []
 
-    # 🌟🌟🌟 核心修复: 扩充停用词 + OR 逻辑 (代码行数补全) 🌟🌟🌟
     def _keyword_search(self, query, top_k=50, expr=None):
-        """
-        关键词检索 (修复版：中英文分组 OR 逻辑)
-        """
         results = []
         try:
-            # 1. 定义更全面的停用词 (含常见指令词)
             stop_words = {
                 "的", "了", "和", "是", "就", "都", "而", "及", "与", "着", "或", 
                 "一个", "没有", "我们", "你们", "他们", "它", "解释", "是什么", 
@@ -95,7 +98,6 @@ class MilvusVectorStore:
             keywords = []
             try:
                 import jieba
-                # 使用搜索引擎模式，切分更细
                 words = jieba.cut_for_search(query) 
                 for w in words:
                     w = w.strip()
@@ -106,35 +108,25 @@ class MilvusVectorStore:
                 keywords = [w for w in clean_query.split() if w.lower() not in stop_words and len(w) > 1]
 
             if not keywords: return []
-            
-            # 去重
             keywords = list(set(keywords))
 
-            # 2. 关键词按语言分组
             zh_keywords = []
             en_keywords = []
             
             for k in keywords:
-                # 简单判断：包含中文即为中文关键词
                 if any('\u4e00' <= char <= '\u9fff' for char in k):
                     zh_keywords.append(k)
                 else:
                     en_keywords.append(k)
             
-            # 3. 构造表达式: 使用 OR (||) 逻辑，提高召回率
             final_parts = []
-            
-            # 中文词通常比较核心，取前 5 个
             for k in zh_keywords[:5]:
                 final_parts.append(f'content like "%{k}%"')
-            
-            # 英文词取前 5 个
             for k in en_keywords[:5]:
                 final_parts.append(f'content like "%{k}%"')
             
             if not final_parts: return []
 
-            # 🌟 关键修改: 用 OR 连接所有条件 (Logic: hit ANY keyword)
             keyword_expr = " || ".join(final_parts) 
             
             if expr:
@@ -142,7 +134,6 @@ class MilvusVectorStore:
             else:
                 final_milvus_expr = keyword_expr
             
-            # 4. 执行查询
             res = self.collection.query(
                 expr=final_milvus_expr,
                 output_fields=["filename", "page", "content", "chunk_id"],
@@ -166,9 +157,6 @@ class MilvusVectorStore:
         return results
 
     def search(self, query: str, top_k: int = 10, **kwargs):
-        """
-        【高精度混合检索】
-        """
         expr = kwargs.get('expr', None)
 
         # === 1. 向量检索 (Dense) ===
@@ -225,7 +213,6 @@ class MilvusVectorStore:
         print(f"🔍 混合检索: 向量{len(dense_results)} + 关键词{len(keyword_results)} -> 融合{len(final_results)}")
         return final_results
 
-    
     def insert_documents(self, documents):
         if not documents: return
         print(f"⚡ 正在请求 Embedding (共 {len(documents)} 条)...")
@@ -248,8 +235,6 @@ class MilvusVectorStore:
             
         if not valid_docs: 
             print("❌ 严重错误: 所有片段 Embedding 均失败，数据未入库！")
-            print("👉 请检查: 1. AISTUDIO_ACCESS_TOKEN 是否正确/过期") # 🌟 恢复了这行
-            print("👉 请检查: 2. 网络是否通畅")                       # 🌟 恢复了这行
             return
 
         try:
@@ -261,23 +246,16 @@ class MilvusVectorStore:
                 valid_vectors
             ]
             self.collection.insert(data)
-            self.collection.flush() # 强制刷盘
+            self.collection.flush()
             logger.info(f"✅ 成功入库: 已插入 {len(valid_vectors)} 条数据")
         except Exception as e:
             print(f"❌ Milvus 写入异常: {e}")
 
     def delete_document(self, filename):
-        """
-        根据文件名删除向量数据
-        """
         if not filename: return "❌ 文件名为空"
         try:
-            # 1. 执行删除 (使用 expr 表达式)
             self.collection.delete(expr=f'filename == "{filename}"')
-            
-            # 2. 强制刷盘 (让删除立即生效)
             self.collection.flush()
-            
             logger.info(f"🗑️ 已从库中删除文档: {filename}")
             return f"✅ 已成功删除: {filename}"
         except Exception as e:
@@ -287,7 +265,6 @@ class MilvusVectorStore:
 
     def list_documents(self):
         try:
-            # 限制查询数量
             res = self.collection.query(expr="id > 0", output_fields=["filename"], limit=16384)
             return sorted(list(set([r['filename'] for r in res])))
         except: return []
@@ -300,20 +277,15 @@ class MilvusVectorStore:
         except: return ""
 
     def test_self_recall(self, sample_size=20):
-        """
-        自回归召回测试
-        """
         try:
             total = self.collection.num_entities
             if total == 0: return "❌ 库为空，无法测试"
 
             limit = min(100, total)
             res = self.collection.query(expr="id > 0", output_fields=["id", "content"], limit=limit)
-            
             if not res: return "❌ 无法获取数据"
             
             samples = random.sample(res, min(sample_size, len(res)))
-            
             hits = 0
             for item in samples:
                 doc_id = item['id']

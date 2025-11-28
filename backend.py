@@ -15,7 +15,8 @@ try:
     from utils.reranker_v2 import RerankerAndFilterV2
 except ImportError as e:
     print(f"❌ 导入工具类失败: {e}")
-    exit(1)
+    # 为了防止报错导致程序崩溃，这里可以做个软处理或直接退出
+    # exit(1) 
 
 from pymilvus import utility, connections
 import gradio as gr
@@ -169,7 +170,7 @@ def check_ready():
     return True, ""
 
 def scan_remote_collections():
-    global known_collections
+    global known_collections, ernie
     try:
         alias = f"scan_{int(time.time())}"
         connections.connect(alias=alias, uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"))
@@ -177,54 +178,72 @@ def scan_remote_collections():
         connections.disconnect(alias)
         for name in all_colls:
             if name not in known_collections:
+                # 传入全局配置的 ernie 客户端
                 known_collections[name] = MilvusVectorStore(
                     uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
-                    collection_name=name, embedding_service_url="https://aistudio.baidu.com/llm/lmapi/v3",
-                    qianfan_api_key=os.environ.get("AISTUDIO_ACCESS_TOKEN")
+                    collection_name=name, embedding_client=ernie
                 )
         return list(known_collections.keys())
     except:
         return list(known_collections.keys())
 
-def initialize_system(aistudio_token, qianfan_key, milvus_uri, milvus_token):
+def initialize_system(
+    llm_api_base, llm_api_key, llm_model,
+    embed_api_base, embed_api_key, embed_model,
+    ocr_url, ocr_token,
+    milvus_uri, milvus_token,
+    api_qps 
+):
     global ernie, milvus_store, reranker_filter, system_ready, known_collections
 
-    aistudio_token = aistudio_token.strip() if aistudio_token else ""
-    qianfan_key = qianfan_key.strip() if qianfan_key else ""
+    # 1. 基础清理
     milvus_uri = milvus_uri.strip() if milvus_uri else ""
     milvus_token = milvus_token.strip() if milvus_token else ""
 
     is_local_mode = milvus_uri.endswith(".db")
-    basic_check = all([aistudio_token, qianfan_key, milvus_uri])
+    # 检查基本必要参数 (LLM Key, Embed Key, Milvus URI)
+    basic_check = all([llm_api_key, embed_api_key, milvus_uri])
     token_check = True if is_local_mode else bool(milvus_token)
 
     if not (basic_check and token_check):
-        return "❌ 请填写必要信息", gr.update(), gr.update(), gr.update()
+        return "❌ 请填写必要信息 (LLM Key, Embed Key, Milvus URI)", gr.update(), gr.update(), gr.update()
 
     try:
-        os.environ["AISTUDIO_ACCESS_TOKEN"] = aistudio_token
-        os.environ["QIANFAN_API_KEY"] = qianfan_key
+        # 2. 设置环境变量 (供其他模块或持久化使用)
         os.environ["MILVUS_URI"] = milvus_uri
-        if milvus_token:
-            os.environ["MILVUS_TOKEN"] = milvus_token
-        else:
-            os.environ.pop("MILVUS_TOKEN", None)
+        if milvus_token: os.environ["MILVUS_TOKEN"] = milvus_token
+        
+        # 存储 OCR 配置到 Env，以便上传时使用
+        if ocr_url: os.environ["OCR_API_URL"] = ocr_url
+        if ocr_token: os.environ["OCR_ACCESS_TOKEN"] = ocr_token
 
+        # 3. Milvus 重连清理
         try:
             if connections.has_connection("default"):
                 connections.disconnect("default")
         except: pass
 
         known_collections = {}
-        ernie = ERNIEClient()
+        
+        # 4. 初始化 ERNIE Client (传入 QPS)
+        ernie = ERNIEClient(
+            llm_api_base=llm_api_base,
+            llm_api_key=llm_api_key,
+            llm_model=llm_model,
+            embed_api_base=embed_api_base,
+            embed_api_key=embed_api_key,
+            embed_model=embed_model,
+            qps=api_qps
+        )
+        
         reranker_filter = RerankerAndFilterV2()
 
+        # 5. 初始化 Milvus Store (传入配置好的 ernie client)
         milvus_store = MilvusVectorStore(
             uri=milvus_uri,
             token=milvus_token, 
             collection_name="pdf_qa_collection_paddle_v3", 
-            embedding_service_url="https://aistudio.baidu.com/llm/lmapi/v3",
-            qianfan_api_key=aistudio_token
+            embedding_client=ernie 
         )
         
         known_collections = {milvus_store.collection_name: milvus_store}
@@ -236,7 +255,7 @@ def initialize_system(aistudio_token, qianfan_key, milvus_uri, milvus_token):
         
         system_ready = True
         return (
-            "✅ 连接成功", 
+            f"✅ 连接成功 (QPS: {api_qps})", 
             gr.update(choices=cols, value=default_col),
             gr.update(choices=cols, value=default_col),
             gr.update(choices=cols, value=default_col)
@@ -244,8 +263,7 @@ def initialize_system(aistudio_token, qianfan_key, milvus_uri, milvus_token):
     except Exception as e:
         return f"❌ 失败: {str(e)}", gr.update(), gr.update(), gr.update()
 
-# 🌟 [修改] 删除了 ocr_mode, ocr_lang_choice 参数
-def process_uploaded_pdf(files, collection_name, custom_ocr_token, custom_ocr_url, progress=gr.Progress()):
+def process_uploaded_pdf(files, collection_name, progress=gr.Progress()):
     if collection_name: collection_name = str(collection_name).strip()
     
     ready, msg = check_ready()
@@ -261,13 +279,15 @@ def process_uploaded_pdf(files, collection_name, custom_ocr_token, custom_ocr_ur
     try: os.makedirs(col_img_dir, exist_ok=True)
     except: pass
     
-    # 🌟 强制使用在线模式
+    # 从全局配置读取 OCR 设置
     print(f"\n[System] 初始化在线 API 解析器...")
-    token = custom_ocr_token.strip() if custom_ocr_token else os.environ.get("AISTUDIO_ACCESS_TOKEN")
-    api_url = custom_ocr_url.strip() if custom_ocr_url else os.environ.get("OCR_API_URL")
+    token = os.environ.get("OCR_ACCESS_TOKEN", os.environ.get("AISTUDIO_ACCESS_TOKEN"))
+    api_url = os.environ.get("OCR_API_URL")
     
     if not api_url:
-        return "❌ 错误: 未配置 OCR API URL！请在 .env 中配置或在 UI 中填写。"
+        return "❌ 错误: 未配置 OCR API URL！请在 '系统配置' 中填写。"
+    if not token:
+        return "❌ 错误: 未配置 OCR Access Token！请在 '系统配置' 中填写。"
         
     online_parser = OnlinePDFParser(api_url, token)
 
@@ -275,13 +295,21 @@ def process_uploaded_pdf(files, collection_name, custom_ocr_token, custom_ocr_ur
     try: existing_files = set(target_store.list_documents())
     except: existing_files = set()
 
-    for file_path in progress.tqdm(files, desc="文档解析中"):
+    total_files = len(files)
+
+    # 🟢 关键修改：手动控制进度，替代自动的 tqdm
+    for i, file_path in enumerate(files):
+        # 计算当前文件的基础进度 (例如第 1 个文件，基础是 0.0，第 2 个是 0.5)
+        base_prog = i / total_files
+        
         path_str = file_path.name if hasattr(file_path, 'name') else file_path
         filename = os.path.basename(path_str)
         abs_path = os.path.abspath(path_str)
     
         if filename in existing_files:
             results.append(f"⏩ {filename} (已存在)")
+            # 即使跳过，也要更新一下进度
+            progress((i + 1) / total_files, desc=f"[{i+1}/{total_files}] 跳过已存在文件: {filename}")
             continue
         
         file_img_dir = os.path.join(col_img_dir, os.path.splitext(filename)[0])
@@ -289,6 +317,10 @@ def process_uploaded_pdf(files, collection_name, custom_ocr_token, custom_ocr_ur
         os.makedirs(file_img_dir, exist_ok=True)
         
         print(f"\n🚀 开始解析文件: {filename} (模式: ☁️ Online)")
+        
+        # 🟢 阶段 1：请求云端 API (这是一个耗时操作，显示“正在解析”)
+        # progress 第一个参数是进度条百分比(0-1)，desc 是文字描述
+        progress(base_prog + 0.05, desc=f"[{i+1}/{total_files}] 正在请求云端 OCR 解析: {filename} (大文件可能需 1-2 分钟)...")
         
         output = []
         try:
@@ -304,9 +336,19 @@ def process_uploaded_pdf(files, collection_name, custom_ocr_token, custom_ocr_ur
             results.append(err_msg)
             continue
 
+        # 🟢 阶段 2：处理解析结果 (按页更新进度条)
         file_chunk_count = 0 
         if output:
+            total_pages = len(output)
             for page_idx, res in enumerate(output):
+                # 动态更新子进度：OCR 占一部分时间，Embedding 占一部分
+                # 这里假设 Embedding 过程占当前文件进度的 80% (0.2 ~ 1.0)
+                step_prog = (page_idx / total_pages) * 0.8
+                current_total = base_prog + 0.2 + (step_prog / total_files)
+                
+                # 实时更新：显示正在处理第几页
+                progress(current_total, desc=f"[{i+1}/{total_files}] 正在入库: {filename} (第 {page_idx+1}/{total_pages} 页)...")
+
                 md_data = res.markdown
                 page_text = md_data.get('markdown_texts', '') 
                 page_images = md_data.get('markdown_images', {})
@@ -332,7 +374,6 @@ def process_uploaded_pdf(files, collection_name, custom_ocr_token, custom_ocr_ur
                 
                 docs = []
                 for cid, chunk in enumerate(page_chunks):
-                    # 🌟 安全截断逻辑 (保留)
                     header = f"文档: {filename} (P{page_idx+1})\n"
                     safe_limit = 380 - len(header)
                     
@@ -368,7 +409,7 @@ def ask_question_logic(question, collection_name, target_filename=None):
     if not ready: return msg, "N/A"
     if not question.strip(): return "请输入问题", "0.0%"
     
-    # 双向翻译逻辑 (保留)
+    # 双向翻译逻辑
     expanded_query = question
     try:
         has_chinese = any('\u4e00' <= char <= '\u9fff' for char in question)
@@ -481,14 +522,15 @@ def run_recall_test(collection_name):
     return store.test_self_recall(sample_size=20)
 
 def create_collection_ui(new_name):
+    global ernie
     ready, msg = check_ready()
     if not ready: return gr.update(), msg
     if not new_name: return gr.update(), "❌ 名称不能为空"
     try:
+        # 传入全局配置的 ernie
         new_store = MilvusVectorStore(
             uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
-            collection_name=new_name, embedding_service_url="https://aistudio.baidu.com/llm/lmapi/v3",
-            qianfan_api_key=os.environ.get("AISTUDIO_ACCESS_TOKEN")
+            collection_name=new_name, embedding_client=ernie
         )
         dummy = [{"filename":"_init","page":0,"content":"init","chunk_id":0}]
         new_store.insert_documents(dummy)
