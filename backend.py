@@ -24,6 +24,52 @@ from pymilvus import utility, connections
 import gradio as gr
 
 load_dotenv()
+def on_gallery_select(evt: gr.SelectData, collection_name, doc_filename):
+    """
+    用户点击图片时，解析出：路径、文档名、页码
+    """
+    if not collection_name or not doc_filename:
+        return None, "⚠️ 请先选择文档"
+    
+    try:
+        # 1. 定位图片目录
+        file_img_path = os.path.join(ASSET_DIR, collection_name, os.path.splitext(doc_filename)[0])
+        valid_images = []
+        if os.path.exists(file_img_path):
+            # 必须与 analyze_doc_and_images 排序一致
+            for img_file in sorted(os.listdir(file_img_path)):
+                if img_file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    if "formula" in img_file.lower() or "img_in_for" in img_file.lower():
+                        continue
+                    full_path = os.path.join(file_img_path, img_file)
+                    valid_images.append(full_path)
+        
+        # 2. 获取选中的图片路径
+        if 0 <= evt.index < len(valid_images):
+            selected_img_path = valid_images[evt.index]
+            filename_only = os.path.basename(selected_img_path)
+            
+            # 3. 🟢 核心：从文件名解析页码 (格式: p0_123456_name.jpg)
+            # p(\d+) 匹配 p0, p1, p10...
+            page_match = re.match(r"p(\d+)_", filename_only)
+            page_num = int(page_match.group(1)) + 1 if page_match else "未知"
+            
+            print(f"🖼️ 选中图片: {filename_only} (第 {page_num} 页)")
+            
+            # 4. 构造完整上下文包 (Dict) 而不是简单的 String
+            img_context_data = {
+                "path": selected_img_path,
+                "doc_name": doc_filename,
+                "page": page_num,
+                "collection": collection_name
+            }
+            
+            return img_context_data, f"✅ 已选中第 {page_num} 页的图表，可询问详情！"
+        
+        return None, "❌ 无法定位图片"
+    except Exception as e:
+        print(f"❌ 图片选择异常: {e}")
+        return None, f"选择出错: {e}"
 def encode_name(ui_name):
     """把中文名称转为 Milvus 合法的 Hex 字符串 (例如: '测试' -> 'kb_e6b58b...')"""
     if not ui_name: return ""
@@ -496,23 +542,120 @@ def ask_question_logic(question, collection_name, target_filename=None):
             seen.add(key)
             
     return answer + sources, metric
-
-def chat_respond(message, history, collection_name, target_filename, img_context):
-    if not message: return history, history, "", "N/A", img_context
-    if not collection_name: 
-        history.append({"role": "user", "content": message})
-        history.append({"role": "assistant", "content": "⚠️ 请先选择知识库"})
-        return history, history, "", "N/A", img_context
-
-    full_query = message
-    if img_context: 
-        full_query = f"{img_context}\n用户问题: {message}"
-        img_context = "" 
+def chat_respond(message, history, collection_name, target_filename, img_context_data):
+    if not message: return history, history, "", "N/A", img_context_data
     
-    answer, metric = ask_question_logic(full_query, collection_name, target_filename)
-    history.append({"role": "user", "content": message})
-    history.append({"role": "assistant", "content": answer})
-    return history, history, "", metric, img_context
+    # === 变量初始化 ===
+    # 我们先准备好默认的“用户提问”和“机器回答”变量
+    # 无论走哪条路，最后都只把这两个变量加进 history
+    user_display_text = message
+    bot_response_text = ""
+    metric_info = "N/A"
+    
+    # 状态标记
+    vision_success = False
+    
+    # ============================================================
+    # 1️⃣ 尝试多模态 (Vision) 通道
+    # ============================================================
+    if img_context_data and isinstance(img_context_data, dict) and os.path.exists(img_context_data.get("path", "")):
+        img_path = img_context_data["path"]
+        page_num = img_context_data["page"]
+        doc_name = img_context_data["doc_name"]
+        col_name = img_context_data.get("collection")
+        
+        # 1.1 准备背景文本
+        page_text_context = ""
+        try:
+            store = known_collections.get(col_name, milvus_store)
+            db_page_idx = int(page_num) - 1 if isinstance(page_num, int) else 0
+            res = store.collection.query(
+                expr=f'filename == "{doc_name}" and page == {db_page_idx}',
+                output_fields=["content"], limit=3
+            )
+            texts = [r['content'] for r in res]
+            if texts: page_text_context = "\n".join(texts)[:800]
+        except: pass
+
+        # 1.2 构造 Prompt (如果降级，这也将作为 RAG 的输入)
+        final_prompt = f"""
+        【任务】结合图片和背景信息回答问题。
+        【图片元数据】来源：{doc_name} (P{page_num})
+        【背景文本】{page_text_context}
+        【用户问题】{message}
+        """
+
+        # 1.3 请求模型
+        try:
+            print(f"📷 正在请求多模态模型...")
+            answer = ernie.chat_with_image(final_prompt, img_path)
+            
+            # 只有当回答有效，且不包含错误提示时，才算成功
+            if answer and "失败" not in answer:
+                # ✅ 成功！更新暂存变量
+                user_display_text = f"[针对 P{page_num} 图表] {message}"
+                bot_response_text = answer
+                metric_info = "Vision Mode"
+                vision_success = True 
+                
+        except Exception as e:
+            err_str = str(e).lower()
+            if "400" in err_str or "invalid" in err_str or "support" in err_str:
+                print(f"⚠️ 模型不支持图片，准备切换至文本模式。")
+            else:
+                print(f"❌ 多模态调用异常: {e}")
+
+    # ============================================================
+    # 2️⃣ 降级/常规 RAG 通道 (仅当多模态未成功时执行)
+    # ============================================================
+    if not vision_success:
+        print("🔄 执行文本 RAG 通道")
+        
+        if not collection_name: 
+            bot_response_text = "⚠️ 请先选择知识库"
+        else:
+            # 构造查询
+            full_query = message
+            prefix_hint = ""
+            
+            # 如果之前准备过 final_prompt（说明是降级下来的），我们复用它作为文本输入
+            if 'final_prompt' in locals() and final_prompt:
+                full_query = final_prompt
+                prefix_hint = "ℹ️ **系统提示**：当前模型不支持视觉输入，已自动根据图表周围的文本为您分析。\n\n"
+
+            # 执行检索问答
+            answer, metric = ask_question_logic(full_query, collection_name, target_filename)
+            
+            # 更新暂存变量
+            bot_response_text = prefix_hint + answer
+            metric_info = metric
+
+    # ============================================================
+    # 3️⃣ 统一出口 (Single Exit) - 绝对防止双重气泡
+    # ============================================================
+    history.append({"role": "user", "content": user_display_text})
+    history.append({"role": "assistant", "content": bot_response_text})
+    
+    # 如果多模态成功，我们要清空 img_context_data (返回 None)
+    # 如果失败/降级，我们也清空它（假设用户的一问一答消耗了这次图片选择），或者你可以保留
+    # 这里我们选择消耗掉，避免状态混乱
+    return history, "", metric_info, None
+# def chat_respond(message, history, collection_name, target_filename, img_context):
+#     if not message: return history, history, "", "N/A", img_context
+#     if not collection_name: 
+#         history.append({"role": "user", "content": message})
+#         history.append({"role": "assistant", "content": "⚠️ 请先选择知识库"})
+#         return history, history, "", "N/A", img_context
+
+#     full_query = message
+#     if img_context: 
+#         full_query = f"{img_context}\n用户问题: {message}"
+#         img_context = "" 
+    
+#     answer, metric = ask_question_logic(full_query, collection_name, target_filename)
+#     history.append({"role": "user", "content": message})
+#     history.append({"role": "assistant", "content": answer})
+#     return history, history, "", metric, img_context
 
 def analyze_doc_and_images(collection_name, filename):
     ready, msg = check_ready()

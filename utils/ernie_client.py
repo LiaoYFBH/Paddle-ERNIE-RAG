@@ -5,7 +5,7 @@ import logging
 import random
 import requests
 import json
-
+import base64
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("ernie_client")
@@ -24,7 +24,7 @@ class ERNIEClient:
         # === 1. LLM 配置 ===
         self.llm_base = (llm_api_base or "https://aistudio.baidu.com/llm/lmapi/v3").rstrip('/')
         self.llm_key = llm_api_key or os.getenv("AISTUDIO_ACCESS_TOKEN", "")
-        self.chat_model_name = llm_model or "ernie-4.5-turbo-128k-preview"
+        self.chat_model_name = llm_model or "ernie-4.5-turbo-vl"#"ernie-4.5-turbo-128k-preview"
         
         # === 2. Embedding 配置 ===
         self.embed_base = (embed_api_base or "https://aistudio.baidu.com/llm/lmapi/v3").rstrip('/')
@@ -55,7 +55,49 @@ class ERNIEClient:
             try:
                 self.embed_client = OpenAI(base_url=self.embed_base, api_key=self.embed_key, max_retries=self.max_retries, timeout=120.0)
             except Exception as e: logger.error(f"❌ Embedding Client 初始化异常: {e}")
+    def _encode_image(self, image_path):
+            """辅助：读取图片并转 Base64"""
+            try:
+                with open(image_path, "rb") as image_file:
+                    return base64.b64encode(image_file.read()).decode('utf-8')
+            except Exception as e:
+                # 如果读图失败，打日志，返回 None
+                print(f"❌ 图片读取/编码失败: {e}") 
+                return None
 
+    def chat_with_image(self, query: str, image_path: str):
+        """
+        发送带图片的对话请求 (Vision)
+        """
+        base64_image = self._encode_image(image_path)
+        
+        # 1. 编码失败，降级
+        if not base64_image:
+            print("⚠️ 图片编码失败，降级为纯文本问答")
+            return self.chat([{"role": "user", "content": query}])
+        
+        # 2. 构造 Vision 消息
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": query},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
+                ]
+            }
+        ]
+        
+        # 3. 尝试发送，并捕获特定错误
+        try:
+            return self.chat(messages)
+        except Exception as e:
+            # 抛出异常供上层 (backend.py) 捕获和处理
+            raise e
     def _wait_for_rate_limit(self, is_embedding=True):
         """流控等待"""
         now = time.time()
@@ -77,17 +119,23 @@ class ERNIEClient:
         use_model = model if model else self.chat_model_name
         self._wait_for_rate_limit(is_embedding=False)
 
-        # === 分支 B: OpenAI 兼容模式 ===
-        if not self.chat_client: return None
+        if not self.chat_client: return "错误: Client 未初始化"
+        
         try:
             response = self.chat_client.chat.completions.create(
                 model=use_model, messages=messages, max_tokens=max_tokens, temperature=temperature
             )
             self.last_chat_time = time.time()
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            if not content: return "模型返回内容为空"
+            return content
+            
         except Exception as e:
+            # 🛑 关键：不要在这里只打印日志然后返回 None/Str
+            # 我们需要把原始错误 raise 出去，或者返回一个带有特殊标记的错误对象
+            # 为了简单，我们这里 raise，让 backend 去 try-catch
             logger.error(f"❌ Chat 失败: {e}")
-            return None 
+            raise e
 
     def get_embedding(self, text: str, max_retries: int = 5) -> list:
         if not text: return None

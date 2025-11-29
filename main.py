@@ -211,6 +211,64 @@ footer { display: none !important; }
     color: #c026d3 !important;
     background: #fdf4ff !important;
 }
+/* === 图片预览胶囊样式 (优化版) === */
+/* === 更新这部分 CSS === */
+
+/* 1. 胶囊容器：允许宽度自适应撑开 */
+.img-preview-mini {
+    display: flex !important;
+    align-items: center !important;
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-left: 4px solid #6366f1 !important;
+    border-radius: 12px !important;
+    padding: 0 8px 0 0 !important; /* 右侧留点空隙给关闭按钮 */
+    margin-right: 8px !important;
+    height: 56px !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
+    
+    /* 🟢 关键：允许内容撑开宽度，不要写死 hidden */
+    min-width: fit-content !important; 
+    flex-shrink: 0 !important; /* 防止被输入框挤扁 */
+    overflow: visible !important; /* 允许文字完整显示 */
+}
+
+/* 2. 图片容器：增加左边距 */
+.mini-img-container {
+    height: 42px !important;
+    width: 42px !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    border: 1px solid #f3f4f6 !important;
+    flex-shrink: 0 !important;
+    margin: 0 10px 0 6px !important; /* 调整间距 */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* 3. 新增：专门控制文字列的 CSS，防止换行 */
+.mini-text-col {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    white-space: nowrap !important; /* 强制不换行 */
+    overflow: visible !important;
+}
+
+.mini-tag-text {
+    font-size: 13px !important; /* 稍微大一点 */
+    font-weight: 700 !important;
+    color: #4f46e5 !important;
+    line-height: 1.3 !important;
+}
+
+.mini-tag-sub {
+    font-size: 11px !important;
+    color: #9ca3af !important;
+    font-weight: 400 !important;
+    line-height: 1.1 !important;
+}
 """
 
 # ==============================================================================
@@ -260,7 +318,7 @@ def create_masked_input(label, value, placeholder="", link_info=""):
 # ==============================================================================
 with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
     
-    image_context_state = gr.State("")
+    image_context_state = gr.State(None)
 
     with gr.Tabs():
         
@@ -304,31 +362,78 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
                         # 降低高度，确保输入框在可视区域
                         chatbot = gr.Chatbot(
                             label="Conversation",
-                            height=500,  
+                            height=450,  
                             show_label=False, 
                             type='messages',
                             avatar_images=(None, "https://cdn-icons-png.flaticon.com/512/6134/6134346.png"),
                             elem_classes="chat-container",
                             placeholder="# 👋 Document AI\n\nAsk anything about your documents."
                         )
-                        
-                        # --- 稳健版输入框 ---
-                        # 使用简单的 Row + Textbox，样式直接作用于 Textbox
                         with gr.Row(elem_classes="input-row"):
+                            
+                            # === 1. 左侧：迷你预览胶囊 (默认隐藏，scale=0 不占地) ===
+                            with gr.Group(visible=False, elem_classes="img-preview-mini") as img_preview_group:
+                                with gr.Row(elem_classes="row-center no-padding"):
+                                    # 图片缩略图
+                                    with gr.Column(elem_classes="mini-img-container", min_width=42, scale=0):
+                                        preview_img = gr.Image(
+                                            show_label=False, 
+                                            container=False, 
+                                            interactive=False, 
+                                            show_download_button=False, 
+                                            show_fullscreen_button=False,
+                                            height=42, 
+                                            width=42
+                                        )
+                                    
+                                    # 文字提示
+                                    with gr.Column(min_width=100, scale=0):
+                                        gr.HTML("""
+                                        <div style="display:flex;flex-direction:column;">
+                                            <span class="mini-tag-text">📷 图表预览</span>
+                                            <span class="mini-tag-sub">Context Locked</span>
+                                        </div>
+                                        """)
+                                    
+                                    # 关闭按钮
+                                    btn_clear_img = gr.Button("✕", elem_classes="mini-close-btn", size="sm", scale=0, min_width=24)
+
+                            # === 2. 中间：输入框 (scale=10 自动填满剩余空间) ===
                             msg = gr.Textbox(
                                 show_label=False, 
                                 placeholder="请输入您的问题...", 
-                                container=True, # 恢复容器以应用样式
+                                container=True, 
                                 max_lines=8,
                                 lines=1,
                                 autofocus=True,
-                                elem_classes="custom-textbox", # 关键 CSS 类
-                                scale=10
+                                elem_classes="custom-textbox", 
+                                scale=10  # 关键：占据剩余宽度
                             )
-                            # 按钮直接放在行内
+                            
+                            # === 3. 右侧：功能按钮 ===
                             clear_btn = gr.Button("🗑️", elem_classes="action-btn trash-btn", size="sm", scale=0)
                             submit_btn = gr.Button("➤", elem_classes="action-btn send-btn", size="sm", scale=0)
-
+                        # # --- 稳健版输入框 ---
+                        # # 使用简单的 Row + Textbox，样式直接作用于 Textbox
+                        # with gr.Row(elem_classes="input-row"):
+                        #     msg = gr.Textbox(
+                        #         show_label=False, 
+                        #         placeholder="请输入您的问题...", 
+                        #         container=True, # 恢复容器以应用样式
+                        #         max_lines=8,
+                        #         lines=1,
+                        #         autofocus=True,
+                        #         elem_classes="custom-textbox", # 关键 CSS 类
+                        #         scale=10
+                        #     )
+                        #     # 按钮直接放在行内
+                        #     clear_btn = gr.Button("🗑️", elem_classes="action-btn trash-btn", size="sm", scale=0)
+                        #     submit_btn = gr.Button("➤", elem_classes="action-btn send-btn", size="sm", scale=0)
+                        gr.HTML("""
+                                <div style="margin-top: 6px; font-size: 13px; color: #6366f1; background-color: #eef2ff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e0e7ff;">
+                                    💡 <b>操作提示：</b> 点击展开下方“分析详情”，可选中图表进行提问</b>。
+                                </div>
+                                """)
                         # 分析详情
                         with gr.Accordion("📊 分析详情", open=False):
                              with gr.Column(elem_classes="modern-card"):
@@ -341,8 +446,8 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
                                         doc_summary = gr.Markdown(value="*暂无摘要*")
                                 gr.HTML('<hr style="margin: 15px 0; border-top: 1px dashed #e5e7eb;">')
                                 gr.Markdown("#### 🖼️ 提取图表")
-                                doc_gallery = gr.Gallery(show_label=False, height=180, object_fit="contain", columns=4)
-
+                                doc_gallery = gr.Gallery(show_label=False, height=180, object_fit="contain", columns=4,interactive=True)
+                                
         # ============================================================
         # Tab 2 & 3: 管理与配置 (Perfect & Unchanged)
         # ============================================================
@@ -421,14 +526,14 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
             with gr.Row():
                 # === 1. LLM 配置 ===
                 with gr.Column(elem_classes="modern-card"):
-                    gr.HTML('<div class="card-header"><span>🧠</span> 大语言模型 (LLM)</div>')
+                    gr.HTML('<div class="card-header"><span>🧠</span> 大模型 (LLM)</div>')
                     
                     llm_api_base = gr.Textbox(
                         label="Base URL", 
                         value=os.getenv("LLM_API_BASE", "https://aistudio.baidu.com/llm/lmapi/v3"),
                         info="千帆/AIStudio URL"
                     )
-                    llm_model = gr.Textbox(label="Model Name", value=os.getenv("LLM_MODEL", "ernie-4.5-turbo-128k-preview"))
+                    llm_model = gr.Textbox(label="Model Name", value=os.getenv("LLM_MODEL", "ernie-4.5-turbo-vl"))
                     
                     # 带链接的 Key
                     llm_api_key = create_masked_input(
@@ -499,6 +604,53 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
     # ==============================================================================
     # 🔗 逻辑绑定
     # ==============================================================================
+    # 1. Gallery 点击事件 -> 获取路径 -> 更新 State -> 显示预览区
+    def on_img_select(evt: gr.SelectData, col, file):
+        data, toast = backend.on_gallery_select(evt, col, file)
+        
+        if data:
+            gr.Info(toast) # 弹出提示
+            
+            # 🛑 核心修复在这里：
+            # Output 0 (image_context_state): 存完整的 data 字典 (供后端问答用)
+            # Output 1 (img_preview_group):   设为可见
+            # Output 2 (preview_img):         只取 data['path'] (供前端显示用)
+            return data, gr.update(visible=True), data['path']
+        return None, gr.update(visible=False), None
+    doc_gallery.select(
+        on_img_select, 
+        inputs=[qa_col_select, qa_file_select], 
+        outputs=[image_context_state, img_preview_group, preview_img]
+    )
+
+    # 2. 取消选中图片
+    def clear_img_context():
+        # 四个返回值：gr.update(selected_index=None) 用于清除相册选中态
+        return None, gr.update(visible=False), None, gr.update(selected_index=None)
+    btn_clear_img.click(
+        clear_img_context, 
+        outputs=[image_context_state, img_preview_group, preview_img, doc_gallery] # 👈 记得加上 doc_gallery
+    )
+    # 3. 发送消息 (更新 Inputs 列表，加入 image_context_state)
+    # 第一处：回车发送
+    msg.submit(
+        backend.chat_respond, 
+        inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], 
+        outputs=[chatbot, msg, qa_metric, image_context_state] # ✅ 只有4个
+    ).then(
+        lambda: (gr.update(visible=False), None, gr.update(selected_index=None)), 
+        outputs=[img_preview_group, preview_img, doc_gallery]
+    )
+
+    # 第二处：按钮发送
+    submit_btn.click(
+        backend.chat_respond, 
+        inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], 
+        outputs=[chatbot, msg, qa_metric, image_context_state] # ✅ 只有4个
+    ).then(
+        lambda: (gr.update(visible=False), None, gr.update(selected_index=None)), 
+        outputs=[img_preview_group, preview_img, doc_gallery]
+    )
     use_local_mode.change(lambda x: (gr.update(value="./data.db"), gr.update(value="")) if x else (gr.update(value=os.getenv("MILVUS_URI")), gr.update(value=os.getenv("MILVUS_TOKEN"))), inputs=[use_local_mode], outputs=[tk_uri, tk_token])
     btn_connect.click(backend.initialize_system, inputs=[llm_api_base, llm_api_key, llm_model, embed_api_base, embed_api_key, embed_model, ocr_url, ocr_token, tk_uri, tk_token, api_qps], outputs=[connect_log, qa_col_select, upload_col_select, del_col_select])
     refresh_btn.click(backend.update_file_list, inputs=[qa_col_select], outputs=[qa_file_select])
@@ -513,8 +665,8 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
     upload_col_select.change(backend.update_file_list_for_delete, inputs=[upload_col_select], outputs=[del_file_select])
     btn_del_file.click(backend.delete_single_file, inputs=[upload_col_select, del_file_select], outputs=[del_file_msg]).then(backend.update_file_list_for_delete, inputs=[upload_col_select], outputs=[del_file_select])
     qa_file_select.change(backend.analyze_doc_and_images, inputs=[qa_col_select, qa_file_select], outputs=[doc_summary, doc_gallery])
-    msg.submit(backend.chat_respond, inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], outputs=[chatbot, chatbot, msg, qa_metric, image_context_state])
-    submit_btn.click(backend.chat_respond, inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], outputs=[chatbot, chatbot, msg, qa_metric, image_context_state])
+    # msg.submit(backend.chat_respond, inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], outputs=[chatbot, chatbot, msg, qa_metric, image_context_state])
+    # submit_btn.click(backend.chat_respond, inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], outputs=[chatbot, chatbot, msg, qa_metric, image_context_state])
     clear_btn.click(lambda: ([], "", "N/A", ""), outputs=[chatbot, msg, qa_metric, image_context_state])
     test_recall_btn.click(backend.run_recall_test, inputs=[upload_col_select], outputs=[test_result_box])
 
@@ -527,8 +679,8 @@ def find_free_port(start=7860):
             return port
         except OSError: continue
     return start
-
+abs_asset_path = os.path.abspath("assets")
 if __name__ == "__main__":
     port = find_free_port()
     print(f"🚀 UI 已启动: http://127.0.0.1:{port}")
-    demo.launch(server_name="127.0.0.1", server_port=port, inbrowser=True)
+    demo.launch(server_name="127.0.0.1", server_port=port, inbrowser=True,allowed_paths=[abs_asset_path])
