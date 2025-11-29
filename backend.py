@@ -594,7 +594,11 @@ def chat_respond(message, history, collection_name, target_filename, img_context
             if answer and "失败" not in answer:
                 # ✅ 成功！更新暂存变量
                 user_display_text = f"[针对 P{page_num} 图表] {message}"
-                bot_response_text = answer
+                # 1. 构造来源信息 (保持与文本 RAG 格式一致)
+                vision_source = f"\n\n📚 **参考来源:**\n- 🖼️ {doc_name} (P{page_num}) [视觉锁定]"
+                
+                # 2. 拼接回答
+                bot_response_text = answer + vision_source
                 metric_info = "Vision Mode"
                 vision_success = True 
                 
