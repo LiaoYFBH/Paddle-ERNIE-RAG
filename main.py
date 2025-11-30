@@ -321,7 +321,7 @@ def create_masked_input(label, value, placeholder="", link_info=""):
 # ==============================================================================
 # 🚀 界面构建
 # ==============================================================================
-with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
+with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=theme, css=modern_css) as demo:
     
     image_context_state = gr.State(None)
 
