@@ -270,7 +270,12 @@ footer { display: none !important; }
     line-height: 1.1 !important;
 }
 """
-
+latex_config = [
+    {"left": "$$", "right": "$$", "display": True},   # 行间公式
+    {"left": "$", "right": "$", "display": False},    # 行内公式
+    {"left": "\\(", "right": "\\)", "display": False}, # 标准 LaTeX 行内
+    {"left": "\\[", "right": "\\]", "display": True}   # 标准 LaTeX 行间
+]
 # ==============================================================================
 # 🎨 主题配置
 # ==============================================================================
@@ -367,7 +372,8 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
                             type='messages',
                             avatar_images=(None, "https://cdn-icons-png.flaticon.com/512/6134/6134346.png"),
                             elem_classes="chat-container",
-                            placeholder="# 👋 Document AI\n\nAsk anything about your documents."
+                            placeholder="# 👋 Document AI\n\nAsk anything about your documents.",
+                            latex_delimiters=latex_config
                         )
                         with gr.Row(elem_classes="input-row"):
                             
@@ -443,7 +449,7 @@ with gr.Blocks(title="Document AI System", theme=theme, css=modern_css) as demo:
                                         qa_metric = gr.Textbox(value="N/A", show_label=False, interactive=False)
                                     with gr.Column():
                                         gr.Markdown("#### 📄 智能摘要")
-                                        doc_summary = gr.Markdown(value="*暂无摘要*")
+                                        doc_summary = gr.Markdown(value="*暂无摘要*", latex_delimiters=latex_config)
                                 gr.HTML('<hr style="margin: 15px 0; border-top: 1px dashed #e5e7eb;">')
                                 gr.Markdown("#### 🖼️ 提取图表")
                                 doc_gallery = gr.Gallery(show_label=False, height=180, object_fit="contain", columns=4,interactive=True)
