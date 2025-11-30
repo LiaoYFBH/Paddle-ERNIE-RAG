@@ -8,9 +8,8 @@ Combined with the powerful semantic understanding of Baidu ERNIE 4.5 and the Mil
 我将保持原有格式和链接，把项目资源部分翻译为英文版本。
 ## 🔗 Project Resources
 - 🚀 Xinghe Community Online Application: [Try Now](https://aistudio.baidu.com/application/detail/107183)
-
 - 📓 Xinghe Community Notebook: [Run Online](https://aistudio.baidu.com/project/edit/9812333)
-
+- 📝 Technical Blog: [Check It Out](https://liaoyfbh.github.io/blog/src/posts/high-precision-rag-system.html)
 ## ✨ Key Features
 
 - 🧠 Dual Baidu Engines:

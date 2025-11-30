@@ -15,6 +15,7 @@
 
 - 📓 星河社区 Notebook：[在线运行](https://aistudio.baidu.com/project/edit/9812333)
 
+- 📝技术博客：[点击查看](https://liaoyfbh.github.io/blog/src/posts/high-precision-rag-system.html)
 ## ✨ 核心特性
 - 🧠 百度双引擎驱动：
   - LLM: 接入 ERNIE-4.5-Turbo (通过 AIStudio API)，具备顶尖的中文理解与生成能力。
