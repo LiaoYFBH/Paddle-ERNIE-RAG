@@ -26,37 +26,32 @@ Precise Page Indexing: Dynamic chunking strategy based on pages ensures answers 
 
 ### 1. Configuration & Local Mode
 Supports one-click switching between **Cloud Milvus** and **Local Offline Mode (Milvus Lite)**. Simply configure your Baidu AIStudio and Qianfan API Keys to start, keeping data under your control.
-![System Config](images/演示1.png)
+![System Config](![系统配置](images/系统UI-3.png))
 
 ### 2. Knowledge Base & Intelligent Parsing
 Powered by the PaddleOCR V3 parsing engine with support for Chinese/English model switching. The system features a real-time progress bar for transparent processing.
-![Upload and Parse](images/演示2.png)
-
+![Document List](images/系统UI-1-3.png)
 ### 3. Document Management
 Supports multiple Collection management and viewing of all documents in the library. Supports macro Q&A on "All Documents" or deep reading focused on a "Single Document".
-![Document List](images/演示3.png)
 
 ### 4. Precision Q&A with Citations
 After asking a question, the system displays retrieved reference chunks marked with **precise page numbers** and **relevance scores**. 
 ![Q&A](images/演示4.png)
 
 ### 5. Charts & Knowledge Fusion
-The system automatically extracts images and charts (e.g., knowledge graph structures, statistical charts) from PDFs. Relevant images are automatically displayed on the right side when answering questions to assist understanding.
-![Chart Analysis](images/演示5.png)
+The system automatically extracts images and charts (e.g., knowledge graph structures, statistical charts) from PDFs. Relevant images are automatically displayed on the right side when answering questions to assist understanding.You can select the chart to ask questions.
+![Chart Analysis1](images/系统UI-1-2.png)
+![Chart Analysis2](images/系统UI-1-1.png)
 ## 📥 Quick Start (Pre-built Database)
 
 To experience the system's capabilities immediately without manually parsing documents, you can download my **Pre-built Demo Database**.
 This database contains processed academic papers on RAG/Short Text Clustering along with their extracted charts.
-
-1.  **Download**: [Click here to download (Google Drive)](https://drive.google.com/drive/folders/1avg_m1YKMJPYz5OS9ScA_rXydJBZ7fse?usp=drive_link)
-2.  **Unzip**: Extract the package to get the `my_knowledge_base.db` file and the `assets` folder.
-3.  **Install**: Copy both the file and the folder to the **root directory** of this project (overwrite existing ones).
-4.  **Run**: Execute `python main.py`. The system will automatically load the demo data, and you can start asking questions right away!
+**Run**: Execute `python main.py`. The system will automatically load the demo data, and you can start asking questions right away!
 ## 📦 Installation & Usage
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.10+
 
 - Baidu AIStudio Access Token
 
@@ -74,9 +69,6 @@ cd Paddle-ERNIE-RAG
 ```bash
 # Basic requirements
 pip install -r requirements.txt
-
-# Install PaddlePaddle (CPU example, see official site for GPU)
-python -m pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
 ```
 
 ### 3. Launch System

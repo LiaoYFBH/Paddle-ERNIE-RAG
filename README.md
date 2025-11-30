@@ -25,32 +25,25 @@
 
 ### 1. 系统配置与本地模式
 支持一键切换 **云端 Milvus** 或 **本地离线模式 (Milvus Lite)**。只需配置百度 AIStudio 和千帆 API Key 即可启动，数据完全掌握在自己手中。
-![系统配置](images/演示1.png)
+![系统配置](images/系统UI-3.png)
 
 ### 2. 知识库构建与智能解析
 基于 PaddleOCR V3 的智能解析引擎，支持中/英文模型切换。系统配备实时进度条，解析过程透明化。
-![上传与解析](images/演示2.png)
+![上传与解析](images/系统UI-2.png)
 
 ### 3. 全局文档管理
 支持多知识库 (Collection) 管理，可查看库中所有文档列表。支持针对“全部文档”进行宏观问答，或锁定“单一文档”进行深度阅读。
-![文档列表](images/演示3.png)
-
 ### 4. 精准问答与溯源
 提问后，系统会展示检索到的参考片段，并标注**精准的页码**和**相关性得分**。
-![智能问答](images/演示4.png)
+![智能问答](images/系统UI-1-3.png)
 
 ### 5. 图表与知识融合
-系统会自动提取 PDF 中的图片和图表（如知识图谱结构图、数据统计图）。在回答问题时，相关联的图片会自动展示在右侧，辅助理解。
-![图表分析](images/演示5.png)
-## 📥 快速体验 (下载即用)
+系统会自动提取 PDF 中的图片和图表（如知识图谱结构图、数据统计图）。在回答问题时，相关联的图片会自动展示在右侧，辅助理解。可以选中图表来进行提问。
+![图表分析](images/系统UI-1-2.png)
+![选图问答](images/系统UI-1-1.png)
+## 📥 快速体验 
 
-如果您不想手动上传和解析文档，可以直接下载我制作好的**演示数据库**，解压后即可直接提问。
-该数据库包含了多篇关于 RAG 和短文本聚类的学术论文，及其提取的图表数据。
-
-1.  **下载数据包**：[点击这里下载 (Google Drive)](https://drive.google.com/drive/folders/1avg_m1YKMJPYz5OS9ScA_rXydJBZ7fse?usp=drive_link)
-2.  **解压文件**：将压缩包解压，您会得到一个 `my_knowledge_base.db` 文件和一个 `assets` 文件夹。
-3.  **覆盖安装**：将上述文件和文件夹直接复制到本项目的**根目录**下（覆盖同名文件）。
-4.  **运行程序**：执行 `python main.py`，系统将自动加载演示数据，您可以直接开始提问！
+**运行程序**：执行 `python main.py`，系统将自动加载演示数据，您可以直接开始提问！
 
 ## 📦 安装与使用
 ### 前置要求
@@ -68,13 +61,6 @@ cd Paddle-ERNIE-RAG
 ```bash
 # 基础依赖
 pip install -r requirements.txt
-
-# 安装 PaddlePaddle (CPU版示例，GPU版请参考官网)
-python -m pip install paddlepaddle -i https://mirror.baidu.com/pypi/simple
-
-
-# 安装 PaddleOCR
-pip install PaddleOCR
 ```
 
 ### 3. 启动系统
