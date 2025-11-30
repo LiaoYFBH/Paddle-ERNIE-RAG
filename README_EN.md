@@ -1,11 +1,15 @@
 [English](README_EN.md) | [中文](README.md)
-# 🚀 Paddle-RAG: Multi-Document Analysis System with ERNIE 4.5 & PaddleOCR
-
+# 🚀 Multi-Document High-Precision Intelligent Analysis and Q&A System with ERNIE 4.5 & PaddleOCR
 ## 📖 Introduction
 
 This project is a high-performance Retrieval-Augmented Generation (RAG) system designed for complex academic papers and technical documents. Unlike traditional LangChain-based text splitting, this project deeply integrates the PaddleOCR (PP-StructureV3) intelligent document parsing engine, which can accurately recognize layout, tables, formulas, and images within PDFs.
 
 Combined with the powerful semantic understanding of Baidu ERNIE 4.5 and the Milvus vector database, it achieves "What You Ask Is What You Get" with precise citation sourcing. The system supports Local Offline Mode (Milvus Lite), allowing deployment without complex servers.
+我将保持原有格式和链接，把项目资源部分翻译为英文版本。
+## 🔗 Project Resources
+- 🚀 Xinghe Community Online Application: [Try Now](https://aistudio.baidu.com/application/detail/107183)
+
+- 📓 Xinghe Community Notebook: [Run Online](https://aistudio.baidu.com/project/edit/9812333)
 
 ## ✨ Key Features
 
