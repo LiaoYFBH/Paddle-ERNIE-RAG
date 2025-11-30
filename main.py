@@ -495,10 +495,24 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                     #     gr.Markdown("_💡 提示：在根目录创建 examples 文件夹放入 PDF 即可显示测试样本_")
                     # =========== 🟢 新增代码结束 ===========
                     gr.HTML('<div style="height:15px"></div>')
-                    upload_btn = gr.Button("🚀 上传并解析", variant="primary", size="lg")
+                    with gr.Row():
+                        # 上传按钮
+                        upload_btn = gr.Button("🚀 上传并解析", variant="primary", scale=3)
+                        # 终止按钮
+                        stop_btn = gr.Button("🛑 终止任务", variant="stop", scale=1)
                     gr.HTML('<div style="height:20px"></div>')
-                    upload_log = gr.Textbox(show_label=False, lines=15, max_lines=25, placeholder="等待任务...", text_align="left", elem_classes="code-box")
-
+                    # upload_log = gr.Textbox(show_label=False, lines=15, max_lines=25, placeholder="等待任务...", text_align="left", elem_classes="code-box")
+                # 日志框：设为 interactive=False 防止用户输入，但允许滚动查看
+                    upload_log = gr.Textbox(
+                        show_label=True, 
+                        label="实时执行日志",
+                        lines=12, 
+                        max_lines=20, 
+                        placeholder="点击上传后，此处显示实时进度...", 
+                        elem_classes="code-box",
+                        interactive=False,
+                        autoscroll=True  # 自动滚动到底部
+                    )
                 with gr.Column(scale=1):
                     with gr.Column(elem_classes="modern-card"):
                         gr.HTML('<div class="card-header"><span>✨</span> 快速创建</div>')
@@ -661,8 +675,22 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
     btn_connect.click(backend.initialize_system, inputs=[llm_api_base, llm_api_key, llm_model, embed_api_base, embed_api_key, embed_model, ocr_url, ocr_token, tk_uri, tk_token, api_qps], outputs=[connect_log, qa_col_select, upload_col_select, del_col_select])
     refresh_btn.click(backend.update_file_list, inputs=[qa_col_select], outputs=[qa_file_select])
     qa_col_select.change(backend.update_file_list, inputs=[qa_col_select], outputs=[qa_file_select])
-    upload_event = upload_btn.click(backend.process_uploaded_pdf, inputs=[files_input, upload_col_select], outputs=[upload_log])
-    # upload_event.then(backend.refresh_all_dropdowns, outputs=[qa_col_select, upload_col_select, del_col_select]).then(backend.update_file_list, inputs=[qa_col_select], outputs=[qa_file_select])
+    upload_event = upload_btn.click(
+        backend.process_uploaded_pdf, 
+        inputs=[files_input, upload_col_select], 
+        outputs=[upload_log] # 输出目标是日志框
+    )
+    
+    # 2. 🟢 核心功能：绑定终止按钮
+    # cancels=[upload_event] 会告诉 Gradio 强制停止 upload_event 这个正在运行的线程
+    stop_btn.click(
+        fn=None, 
+        inputs=None, 
+        outputs=None, 
+        cancels=[upload_event]
+    )
+    
+    # 3. 链式回调：任务完成（或被终止）后，依然刷新下拉列表
     upload_event.then(backend.refresh_all_dropdowns, outputs=[qa_col_select, upload_col_select, del_col_select]) \
                 .then(backend.update_file_list, inputs=[qa_col_select], outputs=[qa_file_select]) \
                 .then(backend.update_file_list_for_delete, inputs=[upload_col_select], outputs=[del_file_select])

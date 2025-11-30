@@ -361,93 +361,106 @@ def initialize_system(
 def process_uploaded_pdf(files, collection_name, progress=gr.Progress()):
     if collection_name: collection_name = str(collection_name).strip()
     
+    # 初始化日志缓冲区
+    log_buffer = "🚀 任务启动...\n"
+    yield log_buffer # 立即推送第一条
+    
     ready, msg = check_ready()
-    if not ready: return msg
-    if not files: return "⚠️ 请上传 PDF"
+    if not ready: 
+        log_buffer += f"\n{msg}"
+        yield log_buffer
+        return
+        
+    if not files: 
+        log_buffer += "\n⚠️ 未检测到文件，请上传 PDF。"
+        yield log_buffer
+        return
     
     if collection_name not in known_collections:
         create_collection_ui(collection_name)
     
     target_store = known_collections[collection_name]
-    results = [] 
     col_img_dir = os.path.join(ASSET_DIR, collection_name)
     try: os.makedirs(col_img_dir, exist_ok=True)
     except: pass
     
-    # 从全局配置读取 OCR 设置
-    print(f"\n[System] 初始化在线 API 解析器...")
+    # 读取配置
     token = os.environ.get("OCR_ACCESS_TOKEN", os.environ.get("AISTUDIO_ACCESS_TOKEN"))
     api_url = os.environ.get("OCR_API_URL")
     
-    if not api_url:
-        return "❌ 错误: 未配置 OCR API URL！请在 '系统配置' 中填写。"
-    if not token:
-        return "❌ 错误: 未配置 OCR Access Token！请在 '系统配置' 中填写。"
-        
-    online_parser = OnlinePDFParser(api_url, token)
+    if not api_url or not token:
+        log_buffer += "\n❌ 错误: OCR 配置缺失，请检查系统配置。"
+        yield log_buffer
+        return
 
-    print(f"🔍 检查文档列表...")
+    online_parser = OnlinePDFParser(api_url, token)
     try: existing_files = set(target_store.list_documents())
     except: existing_files = set()
 
     total_files = len(files)
-
-    # 🟢 关键修改：手动控制进度，替代自动的 tqdm
+    
     for i, file_path in enumerate(files):
-        # 计算当前文件的基础进度 (例如第 1 个文件，基础是 0.0，第 2 个是 0.5)
-        base_prog = i / total_files
-        
+        # 1. 准备阶段
         path_str = file_path.name if hasattr(file_path, 'name') else file_path
         filename = os.path.basename(path_str)
         abs_path = os.path.abspath(path_str)
-    
-        if filename in existing_files:
-            results.append(f"⏩ {filename} (已存在)")
-            # 即使跳过，也要更新一下进度
-            progress((i + 1) / total_files, desc=f"[{i+1}/{total_files}] 跳过已存在文件: {filename}")
-            continue
         
+        base_prog = i / total_files
+        
+        # === 实时日志更新 ===
+        log_buffer += f"\n--------------------------------------------------\n"
+        log_buffer += f"📄 [{i+1}/{total_files}] 正在处理: {filename}\n"
+        yield log_buffer # 推送日志
+
+        if filename in existing_files:
+            log_buffer += f"⏩ 文件已存在，跳过。\n"
+            progress((i + 1) / total_files, desc=f"跳过: {filename}")
+            yield log_buffer
+            continue
+            
         file_img_dir = os.path.join(col_img_dir, os.path.splitext(filename)[0])
         if os.path.exists(file_img_dir): shutil.rmtree(file_img_dir)
         os.makedirs(file_img_dir, exist_ok=True)
         
-        print(f"\n🚀 开始解析文件: {filename} (模式: ☁️ Online)")
-        
-        # 🟢 阶段 1：请求云端 API (这是一个耗时操作，显示“正在解析”)
-        # progress 第一个参数是进度条百分比(0-1)，desc 是文字描述
-        progress(base_prog + 0.05, desc=f"[{i+1}/{total_files}] 正在请求云端 OCR 解析: {filename} (大文件可能需 1-2 分钟)...")
+        # 2. 云端 OCR 请求阶段
+        progress(base_prog + 0.05, desc=f"☁️ OCR请求中: {filename}")
+        log_buffer += f"☁️ 正在请求在线 OCR 服务 (大文件可能需耗时)...\n"
+        yield log_buffer
         
         output = []
         try:
-            # 只调用在线
             output, err_msg = online_parser.predict(abs_path)
             if output is None:
-                print(f"❌ 解析失败: {err_msg}") 
-                results.append(f"❌ {filename}: {err_msg}")
+                log_buffer += f"❌ OCR 失败: {err_msg}\n"
+                yield log_buffer
                 continue
+            log_buffer += f"✅ OCR 解析成功，开始处理内容...\n"
+            yield log_buffer
         except Exception as e:
-            err_msg = f"❌ {filename}: 异常 ({str(e)})"
-            print(err_msg)
-            results.append(err_msg)
+            log_buffer += f"❌ 异常: {str(e)}\n"
+            yield log_buffer
             continue
 
-        # 🟢 阶段 2：处理解析结果 (按页更新进度条)
+        # 3. 入库阶段
         file_chunk_count = 0 
         if output:
             total_pages = len(output)
             for page_idx, res in enumerate(output):
-                # 动态更新子进度：OCR 占一部分时间，Embedding 占一部分
-                # 这里假设 Embedding 过程占当前文件进度的 80% (0.2 ~ 1.0)
+                # 更新进度条
                 step_prog = (page_idx / total_pages) * 0.8
                 current_total = base_prog + 0.2 + (step_prog / total_files)
+                progress(current_total, desc=f"📥 入库中: {filename} (P{page_idx+1})")
                 
-                # 实时更新：显示正在处理第几页
-                progress(current_total, desc=f"[{i+1}/{total_files}] 正在入库: {filename} (第 {page_idx+1}/{total_pages} 页)...")
+                # 只有当页码变化时才推送日志，避免太频繁刷屏
+                if page_idx % 5 == 0: 
+                    log_buffer += f"   ↳ 正在处理第 {page_idx+1}/{total_pages} 页...\n"
+                    yield log_buffer
 
                 md_data = res.markdown
                 page_text = md_data.get('markdown_texts', '') 
                 page_images = md_data.get('markdown_images', {})
              
+                # 图片保存逻辑...
                 for img_path_key, img_val in page_images.items():
                     try:
                         base_name = os.path.basename(img_path_key)
@@ -467,15 +480,12 @@ def process_uploaded_pdf(files, collection_name, progress=gr.Progress()):
 
                 page_chunks = split_text_into_chunks(page_text)
                 
+                # 构造 Doc
                 docs = []
                 for cid, chunk in enumerate(page_chunks):
                     header = f"文档: {filename} (P{page_idx+1})\n"
                     safe_limit = 380 - len(header)
-                    
-                    safe_chunk = chunk
-                    if len(chunk) > safe_limit:
-                        safe_chunk = chunk[:safe_limit] + "..."
-                        
+                    safe_chunk = chunk if len(chunk) <= safe_limit else chunk[:safe_limit] + "..."
                     docs.append({
                         "filename": filename, 
                         "page": page_idx, 
@@ -488,16 +498,14 @@ def process_uploaded_pdf(files, collection_name, progress=gr.Progress()):
                     file_chunk_count += len(docs)
 
         if file_chunk_count > 0:
-            success_msg = f"✅ {filename} (提取 {file_chunk_count} 片段)"
-            results.append(success_msg)
+            log_buffer += f"✅ {filename}: 成功入库 {file_chunk_count} 个片段。\n"
         else:
-            fail_msg = f"❌ {filename}: 未提取到有效内容"
-            print(fail_msg)
-            results.append(fail_msg)
+            log_buffer += f"⚠️ {filename}: 未提取到有效内容。\n"
+        
+        yield log_buffer # 更新单个文件完成后的状态
             
-        time.sleep(0.05)
-            
-    return "\n".join(results)
+    log_buffer += "\n✨ 所有任务已完成！"
+    yield log_buffer
 
 def ask_question_logic(question, collection_name, target_filename=None):
     ready, msg = check_ready()
@@ -782,9 +790,12 @@ def delete_collection_ui(name):
     try:
         connections.connect(alias=alias, uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"))
         
-        if utility.has_collection(name, using=alias): 
-            utility.drop_collection(name, using=alias)
+        # 必须把 UI 显示的中文名，转回 Milvus 内部存储的 encoded 名字
+        real_milvus_name = encode_name(name) 
         
+        # 使用 real_milvus_name 去检查和删除
+        if utility.has_collection(real_milvus_name, using=alias): 
+            utility.drop_collection(real_milvus_name, using=alias)
         if name in known_collections: 
             del known_collections[name]
         
