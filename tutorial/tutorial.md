@@ -48,13 +48,6 @@
 
 **1.3.2 🛢️ Milvus 向量数据库**
 
-
-本系统支持本地与云端两种模式：
-
-
-**📂 本地模式**：直接使用本地数据库，**无需**配置 URL 和 Token。
-
-**☁️ 云端模式**：
 - 注册/登录 [Zilliz 官网](https://cloud.zilliz.com/) (支持 Github/Google 快捷登录)。
 - 点击 **“Create Cluster”** 创建实例。
 - 创建完成后，复制 **Public Endpoint** (作为 URL) 和 **Token** 填入系统配置。

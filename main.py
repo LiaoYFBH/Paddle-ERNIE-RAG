@@ -559,7 +559,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                 # use_local_mode = gr.Checkbox(label="📂 使用本地 Milvus Lite (无需服务器)", value=False)
                 with gr.Row():
                     with gr.Column(scale=1):
-                        tk_uri = create_normal_input(label="Milvus URI", value=os.getenv("MILVUS_URI", ""), info="Zilliz Cloud 或本地地址")
+                        tk_uri = create_normal_input(label="Milvus URI", value=os.getenv("MILVUS_URI", ""), info="Zilliz Cloud")
                     with gr.Column(scale=1):
                         tk_token = create_masked_input(
                             "Milvus Token", 
