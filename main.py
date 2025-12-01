@@ -4,7 +4,7 @@ import gradio as gr
 import backend  # 引入逻辑层
 
 # ==============================================================================
-# 🎨 13.0 UI 样式 (Direct Styling - Most Stable)
+# UI 样式 
 # ==============================================================================
 modern_css = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
@@ -49,7 +49,6 @@ body, .gradio-container {
 }
 
 /* === 4. 底部输入区布局 === */
-/* === 4. 底部输入区布局 (修复版) === */
 .input-row {
     display: flex !important;
     align-items: center !important; /* 改为垂直居中，修复高度微小差异导致的错位 */
@@ -57,7 +56,6 @@ body, .gradio-container {
     gap: 8px !important; /* 稍微减小间距，更紧凑 */
     padding-bottom: 20px !important;
     
-    /* 🔥 核心修复：强制占满父容器宽度，清除 Gradio 默认负边距 🔥 */
     width: 100% !important;
     max-width: 100% !important;
     margin-left: 0 !important;
@@ -66,8 +64,7 @@ body, .gradio-container {
     padding-right: 0 !important;
 }
 
-/* === 5. 输入框美化 (修复版) === */
-/* 🔥 关键：让输入框容器强制填满剩余空间 🔥 */
+/* === 5. 输入框美化  === */
 .custom-textbox {
     flex-grow: 1 !important;
     flex-shrink: 1 !important;
@@ -273,7 +270,7 @@ latex_config = [
     {"left": "\\[", "right": "\\]", "display": True}   # 标准 LaTeX 行间
 ]
 # ==============================================================================
-# 🎨 主题配置
+# 主题配置
 # ==============================================================================
 theme = gr.themes.Soft(
     primary_hue="indigo",
@@ -324,7 +321,7 @@ def create_masked_input(label, value, placeholder="", link_info=""):
     return txt
 
 # ==============================================================================
-# 🚀 界面构建
+# 界面构建
 # ==============================================================================
 with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=theme, css=modern_css) as demo:
     
@@ -419,22 +416,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                             # === 3. 右侧：功能按钮 ===
                             clear_btn = gr.Button("🗑️", elem_classes="action-btn trash-btn", size="sm", scale=0, min_width=42)
                             submit_btn = gr.Button("➤", elem_classes="action-btn send-btn", size="sm", scale=0, min_width=42)
-                        # # --- 稳健版输入框 ---
-                        # # 使用简单的 Row + Textbox，样式直接作用于 Textbox
-                        # with gr.Row(elem_classes="input-row"):
-                        #     msg = gr.Textbox(
-                        #         show_label=False, 
-                        #         placeholder="请输入您的问题...", 
-                        #         container=True, # 恢复容器以应用样式
-                        #         max_lines=8,
-                        #         lines=1,
-                        #         autofocus=True,
-                        #         elem_classes="custom-textbox", # 关键 CSS 类
-                        #         scale=10
-                        #     )
-                        #     # 按钮直接放在行内
-                        #     clear_btn = gr.Button("🗑️", elem_classes="action-btn trash-btn", size="sm", scale=0)
-                        #     submit_btn = gr.Button("➤", elem_classes="action-btn send-btn", size="sm", scale=0)
+                        
                         gr.HTML("""
                                 <div style="margin-top: 6px; font-size: 13px; color: #6366f1; background-color: #eef2ff; padding: 8px 12px; border-radius: 8px; border: 1px solid #e0e7ff;">
                                     💡 <b>操作提示：</b> 点击展开下方“分析详情”，可选中图表进行提问</b>。
@@ -469,31 +451,6 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                     gr.HTML('<div style="height:10px"></div>')
                     files_input = gr.File(label="PDF 文件", file_count="multiple", type="filepath", height=120)
                     
-    
-                    # 请确保你项目根目录下有 examples 文件夹，并且里面有 demo.pdf
-                    # 如果没有文件，这个组件不会报错，但点击没反应
-                    # example_dir = "examples"
-                    # if os.path.exists(example_dir):
-                    #     raw_files = [os.path.join(example_dir, f) for f in os.listdir(example_dir) if f.lower().endswith('.pdf')]
-                        
-                    #     # 🛑 核心修复：把每个文件路径都包在 [] 里
-                    #     # 之前的错误写法：examples = ['a.pdf', 'b.pdf']
-                    #     # 现在的正确写法：examples = [['a.pdf'], ['b.pdf']]
-                    #     # 这样 Gradio 就会把它们当成“包含一个文件的列表”传给上传框，就不会报错了
-                    #     formatted_examples = [[f] for f in raw_files]
-
-                    #     if formatted_examples:
-                    #         gr.Examples(
-                    #             examples=formatted_examples,
-                    #             inputs=files_input,
-                    #             label="📝 点击使用测试文档 (修复版)",
-                    #             elem_id="file-examples"
-                    #         )
-                    #     else:
-                    #         gr.Markdown("_⚠️ examples 文件夹为空_")
-                    # else:
-                    #     gr.Markdown("_💡 提示：在根目录创建 examples 文件夹放入 PDF 即可显示测试样本_")
-                    # =========== 🟢 新增代码结束 ===========
                     gr.HTML('<div style="height:15px"></div>')
                     with gr.Row():
                         # 上传按钮
@@ -623,7 +580,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
     with gr.Sidebar(label="📖 使用教程", open=False, position="right"):
         gr.Markdown(value=load_tutorial_content())
     # ==============================================================================
-    # 🔗 逻辑绑定
+    # 逻辑绑定
     # ==============================================================================
     # 1. Gallery 点击事件 -> 获取路径 -> 更新 State -> 显示预览区
     def on_img_select(evt: gr.SelectData, col, file):
@@ -632,10 +589,6 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
         if data:
             gr.Info(toast) # 弹出提示
             
-            # 🛑 核心修复在这里：
-            # Output 0 (image_context_state): 存完整的 data 字典 (供后端问答用)
-            # Output 1 (img_preview_group):   设为可见
-            # Output 2 (preview_img):         只取 data['path'] (供前端显示用)
             return data, gr.update(visible=True), data['path']
         return None, gr.update(visible=False), None
     doc_gallery.select(
@@ -682,8 +635,6 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
         outputs=[upload_log] # 输出目标是日志框
     )
     
-    # 2. 🟢 核心功能：绑定终止按钮
-    # cancels=[upload_event] 会告诉 Gradio 强制停止 upload_event 这个正在运行的线程
     stop_btn.click(
         fn=None, 
         inputs=None, 

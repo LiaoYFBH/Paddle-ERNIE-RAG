@@ -19,7 +19,7 @@ class ERNIEClient:
     def __init__(self, 
                  llm_api_base=None, llm_api_key=None, llm_model=None,
                  embed_api_base=None, embed_api_key=None, embed_model=None,
-                 qps=0.8): # 🌟 默认 QPS 调低至 0.8，更安全
+                 qps=0.8): # 默认 QPS 调低至 0.8，更安全
         
         # === 1. LLM 配置 ===
         self.llm_base = (llm_api_base or "https://aistudio.baidu.com/llm/lmapi/v3").rstrip('/')
@@ -131,9 +131,7 @@ class ERNIEClient:
             return content
             
         except Exception as e:
-            # 🛑 关键：不要在这里只打印日志然后返回 None/Str
-            # 我们需要把原始错误 raise 出去，或者返回一个带有特殊标记的错误对象
-            # 为了简单，我们这里 raise，让 backend 去 try-catch
+            # 不要在这里只打印日志然后返回 None/Str
             logger.error(f"❌ Chat 失败: {e}")
             raise e
 
