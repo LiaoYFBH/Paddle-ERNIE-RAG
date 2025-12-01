@@ -336,7 +336,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
             with gr.Column(elem_classes="main-content"):
                 gr.HTML("""
                     <div class="sidebar-hint">
-                        查看使用教程 →
+                        使用教程 →
                     </div>
                 """)
                 
