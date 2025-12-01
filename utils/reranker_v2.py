@@ -71,8 +71,6 @@ class RerankerAndFilterV2:
             length_score = 100 - min(50, (content_len - 600) / 20)
         
         # 专有名词加分
-        # query_proper_nouns = set(re.findall(r'\b[A-Z][a-z]+\b|[A-Z]{2,}', query))
-        # content_proper_nouns = set(re.findall(r'\b[A-Z][a-z]+\b|[A-Z]{2,}', content))
         # 1. 英文正则保持不变
         en_pattern = r'\b[A-Z][a-z]+\b|[A-Z]{2,}'
         

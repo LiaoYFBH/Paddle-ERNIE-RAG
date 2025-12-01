@@ -49,7 +49,7 @@ def on_gallery_select(evt: gr.SelectData, collection_name, doc_filename):
             selected_img_path = valid_images[evt.index]
             filename_only = os.path.basename(selected_img_path)
             
-            # 3. 🟢 核心：从文件名解析页码 (格式: p0_123456_name.jpg)
+            # 3. 从文件名解析页码 (格式: p0_123456_name.jpg)
             # p(\d+) 匹配 p0, p1, p10...
             page_match = re.match(r"p(\d+)_", filename_only)
             page_num = int(page_match.group(1)) + 1 if page_match else "未知"
@@ -90,7 +90,7 @@ def decode_name(real_name):
             hex_str = real_name[3:]
             return binascii.unhexlify(hex_str).decode('utf-8')
         except:
-            # 解码失败（可能是用户自己手动建的以 kb_ 开头的英文库），返回原名
+            # 解码失败，返回原名
             return real_name
     return real_name
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -248,15 +248,15 @@ def scan_remote_collections():
         all_colls = utility.list_collections(using=alias)
         connections.disconnect(alias)
         for real_name in all_colls:
-            # 🟢 解码：获取 UI 显示用的名字
+            # 获取 UI 显示用的名字
             ui_name = decode_name(real_name)
             
             if ui_name not in known_collections:
-                # 🟢 关键：字典 Key 用中文(ui_name)，但传给 Milvus 的参数用真名(real_name)
+                # 字典 Key 用中文(ui_name)，但传给 Milvus 的参数用真名(real_name)
                 known_collections[ui_name] = MilvusVectorStore(
                     uri=os.environ.get("MILVUS_URI"), 
                     token=os.environ.get("MILVUS_TOKEN"),
-                    collection_name=real_name,  # <--- 这里必须是 encoded 的真名
+                    collection_name=real_name,  # 这里必须是 encoded 的真名
                     embedding_client=ernie
                 )
         # for name in all_colls:
@@ -553,9 +553,6 @@ def ask_question_logic(question, collection_name, target_filename=None):
 def chat_respond(message, history, collection_name, target_filename, img_context_data):
     if not message: return history, history, "", "N/A", img_context_data
     
-    # === 变量初始化 ===
-    # 我们先准备好默认的“用户提问”和“机器回答”变量
-    # 无论走哪条路，最后都只把这两个变量加进 history
     user_display_text = message
     bot_response_text = ""
     metric_info = "N/A"
@@ -564,7 +561,7 @@ def chat_respond(message, history, collection_name, target_filename, img_context
     vision_success = False
     
     # ============================================================
-    # 1️⃣ 尝试多模态 (Vision) 通道
+    # 尝试多模态 (Vision) 通道
     # ============================================================
     if img_context_data and isinstance(img_context_data, dict) and os.path.exists(img_context_data.get("path", "")):
         img_path = img_context_data["path"]
@@ -600,7 +597,7 @@ def chat_respond(message, history, collection_name, target_filename, img_context
             
             # 只有当回答有效，且不包含错误提示时，才算成功
             if answer and "失败" not in answer:
-                # ✅ 成功！更新暂存变量
+                # 更新暂存变量
                 user_display_text = f"[针对 P{page_num} 图表] {message}"
                 # 1. 构造来源信息 (保持与文本 RAG 格式一致)
                 vision_source = f"\n\n📚 **参考来源:**\n- 🖼️ {doc_name} (P{page_num}) [视觉锁定]"
@@ -618,7 +615,7 @@ def chat_respond(message, history, collection_name, target_filename, img_context
                 print(f"❌ 多模态调用异常: {e}")
 
     # ============================================================
-    # 2️⃣ 降级/常规 RAG 通道 (仅当多模态未成功时执行)
+    # 降级/常规 RAG 通道 (仅当多模态未成功时执行)
     # ============================================================
     if not vision_success:
         print("🔄 执行文本 RAG 通道")
@@ -642,15 +639,9 @@ def chat_respond(message, history, collection_name, target_filename, img_context
             bot_response_text = prefix_hint + answer
             metric_info = metric
 
-    # ============================================================
-    # 3️⃣ 统一出口 (Single Exit) - 绝对防止双重气泡
-    # ============================================================
     history.append({"role": "user", "content": user_display_text})
     history.append({"role": "assistant", "content": bot_response_text})
     
-    # 如果多模态成功，我们要清空 img_context_data (返回 None)
-    # 如果失败/降级，我们也清空它（假设用户的一问一答消耗了这次图片选择），或者你可以保留
-    # 这里我们选择消耗掉，避免状态混乱
     return history, "", metric_info, None
 # def chat_respond(message, history, collection_name, target_filename, img_context):
 #     if not message: return history, history, "", "N/A", img_context
@@ -730,17 +721,7 @@ def create_collection_ui(new_name):
     ready, msg = check_ready()
     if not ready: return gr.update(), msg
     if not new_name: return gr.update(), "❌ 名称不能为空"
-    # try:
-    #     # 传入全局配置的 ernie
-    #     new_store = MilvusVectorStore(
-    #         uri=os.environ.get("MILVUS_URI"), token=os.environ.get("MILVUS_TOKEN"),
-    #         collection_name=new_name, embedding_client=ernie
-    #     )
-    #     dummy = [{"filename":"_init","page":0,"content":"init","chunk_id":0}]
-    #     new_store.insert_documents(dummy)
-    #     known_collections[new_name] = new_store
-    #     updated = list(known_collections.keys())
-    #     return gr.update(choices=updated, value=new_name), f"✅ 创建成功: {new_name}"
+
     real_milvus_name = encode_name(new_name)
     
     try:
@@ -751,11 +732,7 @@ def create_collection_ui(new_name):
             collection_name=real_milvus_name, # <--- 真实表名
             embedding_client=ernie
         )
-        # # 初始化一下
-        # dummy = [{"filename":"_init","page":0,"content":"init","chunk_id":0}]
-        # new_store.insert_documents(dummy)
-        
-        # 🟢 字典 Key 依然存中文 new_name，方便 UI 显示
+
         known_collections[new_name] = new_store
         
         updated = list(known_collections.keys())
