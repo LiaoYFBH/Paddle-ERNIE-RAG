@@ -33,18 +33,21 @@ class MilvusVectorStore:
             if connections.has_connection("default"):
                 return
             
-            if self.uri.endswith(".db"):
-                logger.info(f"📂 连接本地 Milvus Lite: {self.uri}")
-                connections.connect("default", uri=self.uri)
-            else:
-                logger.info(f"🌐 连接 Milvus 服务器: {self.uri}")
-                connections.connect("default", uri=self.uri, token=self.token)
+            # if self.uri.endswith(".db"):
+            #     logger.info(f"📂 连接本地 Milvus Lite: {self.uri}")
+            #     connections.connect("default", uri=self.uri)
+            # else:
+            #     logger.info(f"🌐 连接 Milvus 服务器: {self.uri}")
+            #     connections.connect("default", uri=self.uri, token=self.token)
+            logger.info(f"🌐 连接 Milvus 服务器: {self.uri}")
+            connections.connect("default", uri=self.uri, token=self.token)
         except Exception as e:
             logger.error(f"❌ Milvus 连接失败: {e}")
-            if not self.uri.endswith(".db") and not connections.has_connection("default"):
-                try:
-                    connections.connect("default", uri="./demo_data.db")
-                except: pass
+            # if not self.uri.endswith(".db") and not connections.has_connection("default"):
+            #     try:
+            #         connections.connect("default", uri="./demo_data.db")
+            #     except: pass
+            raise e
 
     def _init_collection(self):
         fields = [

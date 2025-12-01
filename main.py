@@ -20,31 +20,26 @@ body, .gradio-container {
     max-width: 1400px !important;
     margin: 0 auto !important;
     height: 100% !important;
+    position: relative !important; /* 关键：为右上角按钮提供定位锚点 */
 }
 
-/* === 2. 教程提示 (放在文档流中，不悬浮，防遮挡) === */
-.tutorial-banner {
-    display: flex;
-    justify-content: flex-end;
-    padding: 10px 0;
-}
-.tutorial-link {
-    background: #eef2ff;
-    color: #4f46e5;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 600;
-    text-decoration: none;
-    border: 1px solid #e0e7ff;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-.tutorial-link:hover {
-    background: #4f46e5;
-    color: white;
+/* === 2. 侧边栏静态提示 (修正版：强制固定在浏览器右上角) === */
+.sidebar-hint {
+    position: fixed !important;    /* 改为 fixed，无视任何容器 */
+    top: 22px !important;          /* 垂直高度与 Tab 栏文字对齐 */
+    right: 35px !important;        /* 给最右侧的原生箭头留出位置 */
+    z-index: 99999 !important;     /* 确保在最上层 */
+    
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #9ca3af !important;     /* 浅灰色 */
+    background: transparent !important;
+    
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    pointer-events: none !important; /* 关键：鼠标穿透，防止挡住后面的点击 */
+    user-select: none !important;
 }
 
 /* === 3. 聊天区域 === */
@@ -53,36 +48,56 @@ body, .gradio-container {
     border: none !important;
 }
 
-/* === 4. 输入框 (直接美化 Textarea，稳健方案) === */
-/* 容器调整 */
+/* === 4. 底部输入区布局 === */
+/* === 4. 底部输入区布局 (修复版) === */
 .input-row {
-    align-items: center !important; 
+    display: flex !important;
+    align-items: center !important; /* 改为垂直居中，修复高度微小差异导致的错位 */
+    justify-content: space-between !important;
+    gap: 8px !important; /* 稍微减小间距，更紧凑 */
     padding-bottom: 20px !important;
+    
+    /* 🔥 核心修复：强制占满父容器宽度，清除 Gradio 默认负边距 🔥 */
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
 }
 
-/* 核心：直接把 Textarea 变成白卡片 */
+/* === 5. 输入框美化 (修复版) === */
+/* 🔥 关键：让输入框容器强制填满剩余空间 🔥 */
+.custom-textbox {
+    flex-grow: 1 !important;
+    flex-shrink: 1 !important;
+    min-width: 0 !important; /* 防止溢出 */
+    width: auto !important;
+}
+
 .custom-textbox textarea {
-    background-color: #ffffff !important; /* 强制白底 */
+    background-color: #ffffff !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 12px !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
-    padding: 14px !important;
-    font-size: 16px !important;
+    padding: 10px 14px !important; /* 微调内边距 */
+    font-size: 15px !important;
     color: #1f2937 !important;
-    min-height: 56px !important; /* 保证高度 */
+    
+    /* 🔥 高度控制：确保与左右按钮(48px)视觉一致 🔥 */
+    min-height: 48px !important;
+    height: 48px !important; /* 初始高度固定，避免忽高忽低 */
+    max-height: 120px !important;
+    
     line-height: 1.5 !important;
+    resize: none !important;
 }
 
-/* 聚焦状态 */
-.custom-textbox textarea:focus {
-    border-color: #6366f1 !important;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.15) !important;
-}
-
-/* 隐藏 Gradio 默认的容器边框，只保留 Textarea */
+/* 隐藏 Gradio 默认容器的多余边距 */
 .custom-textbox .block, 
 .custom-textbox .wrapper, 
-.custom-textbox .container {
+.custom-textbox .container, 
+.custom-textbox fieldset {
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
@@ -90,28 +105,34 @@ body, .gradio-container {
     box-shadow: none !important;
 }
 
-/* === 5. 按钮样式 === */
+/* === 6. 按钮样式 (正方形图标) === */
 .action-btn {
-    height: 56px !important; /* 与输入框等高 */
-    width: 56px !important;
+    height: 48px !important; /* 与输入框最小高度一致 */
+    width: 48px !important;
+    max-width: 48px !important;
+    min-width: 48px !important; /* 锁死宽度，防止被拉伸 */
     border-radius: 12px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     padding: 0 !important;
     font-size: 20px !important;
-    transition: transform 0.1s;
-    cursor: pointer;
+    margin-bottom: 2px !important; /* 微调以实现完美底部对齐 */
+    cursor: pointer !important;
+    transition: all 0.2s !important;
 }
 .action-btn:active { transform: scale(0.95); }
 
+/* 发送按钮 - 紫色渐变 */
 .send-btn {
     background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
     color: white !important;
     border: none !important;
     box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3) !important;
 }
+.send-btn:hover { opacity: 0.9; transform: scale(1.05); }
 
+/* 清空按钮 - 白色 */
 .trash-btn {
     background: #ffffff !important;
     color: #9ca3af !important;
@@ -123,7 +144,7 @@ body, .gradio-container {
     background: #fef2f2 !important;
 }
 
-/* === 6. 侧边栏 === */
+/* === 7. 左侧极简列表栏 === */
 .clean-sidebar {
     background: transparent !important;
     border-right: 1px solid #e5e7eb;
@@ -132,7 +153,6 @@ body, .gradio-container {
     flex-direction: column;
     gap: 15px;
 }
-
 .app-logo {
     font-size: 22px;
     font-weight: 800;
@@ -142,7 +162,6 @@ body, .gradio-container {
     margin-bottom: 20px;
     line-height: 1.3;
 }
-
 .sidebar-label {
     font-size: 11px;
     font-weight: 700;
@@ -152,7 +171,7 @@ body, .gradio-container {
     margin-bottom: -5px;
 }
 
-/* === 7. 其他 === */
+/* === 8. 卡片与其他组件 === */
 .modern-card {
     background: #ffffff !important;
     border: 1px solid #e5e7eb !important;
@@ -184,37 +203,22 @@ body, .gradio-container {
 
 footer { display: none !important; }
 
-/* =========== 🟢 侧边栏专属优化 =========== */
-/* 1. 放大正文字体 */
+/* === 9. 侧边栏专属优化 (Markdown 渲染) === */
 .gradio-container .prose p, 
 .gradio-container .prose li {
     font-size: 15px !important;
     line-height: 1.6 !important;
 }
-
-/* 2. 放大标题 */
-.gradio-container .prose h1 { font-size: 24px !important; margin-bottom: 15px !important; }
-.gradio-container .prose h2 { font-size: 20px !important; margin-top: 20px !important; }
-.gradio-container .prose h3 { font-size: 17px !important; color: #4f46e5 !important; }
-
-/* 3. 强制表格可横向滚动 (防止意外截断) */
-.gradio-container .prose table {
-    display: block !important;
-    overflow-x: auto !important;
-    width: 100% !important;
-    white-space: nowrap !important; /* 防止强制换行 */
-}
-
-/* 4. 代码块样式微调 */
+.gradio-container .prose h1 { font-size: 20px !important; margin-bottom: 15px !important; }
+.gradio-container .prose h2 { font-size: 18px !important; margin-top: 20px !important; }
+.gradio-container .prose h3 { font-size: 16px !important; color: #4f46e5 !important; }
 .gradio-container .prose code {
     font-size: 13px !important;
     color: #c026d3 !important;
     background: #fdf4ff !important;
 }
-/* === 图片预览胶囊样式 (优化版) === */
-/* === 更新这部分 CSS === */
 
-/* 1. 胶囊容器：允许宽度自适应撑开 */
+/* === 10. 图片预览胶囊样式 === */
 .img-preview-mini {
     display: flex !important;
     align-items: center !important;
@@ -222,49 +226,41 @@ footer { display: none !important; }
     border: 1px solid #e5e7eb !important;
     border-left: 4px solid #6366f1 !important;
     border-radius: 12px !important;
-    padding: 0 8px 0 0 !important; /* 右侧留点空隙给关闭按钮 */
+    padding: 0 8px 0 0 !important;
     margin-right: 8px !important;
-    height: 56px !important;
+    height: 48px !important; /* 与输入框高度匹配 */
     box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
-    
-    /* 🟢 关键：允许内容撑开宽度，不要写死 hidden */
     min-width: fit-content !important; 
-    flex-shrink: 0 !important; /* 防止被输入框挤扁 */
-    overflow: visible !important; /* 允许文字完整显示 */
+    flex-shrink: 0 !important;
+    overflow: visible !important;
 }
-
-/* 2. 图片容器：增加左边距 */
 .mini-img-container {
-    height: 42px !important;
-    width: 42px !important;
+    height: 36px !important;
+    width: 36px !important;
     border-radius: 6px !important;
     overflow: hidden !important;
     border: 1px solid #f3f4f6 !important;
     flex-shrink: 0 !important;
-    margin: 0 10px 0 6px !important; /* 调整间距 */
+    margin: 0 10px 0 6px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
 }
-
-/* 3. 新增：专门控制文字列的 CSS，防止换行 */
 .mini-text-col {
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
-    white-space: nowrap !important; /* 强制不换行 */
+    white-space: nowrap !important;
     overflow: visible !important;
 }
-
 .mini-tag-text {
-    font-size: 13px !important; /* 稍微大一点 */
+    font-size: 13px !important;
     font-weight: 700 !important;
     color: #4f46e5 !important;
-    line-height: 1.3 !important;
+    line-height: 1.2 !important;
 }
-
 .mini-tag-sub {
-    font-size: 11px !important;
+    font-size: 10px !important;
     color: #9ca3af !important;
     font-weight: 400 !important;
     line-height: 1.1 !important;
@@ -302,7 +298,16 @@ def load_tutorial_content():
             return f"### ❌ 读取教程失败\n{str(e)}"
     else:
         return "### ⚠️ 未找到教程文件\n请在项目根目录创建 `tutorial.md` 文件。"
-
+def create_normal_input(label, value, placeholder="", info=""):
+    """
+    创建一个与 create_masked_input 结构完全一致的普通输入框，确保左右对齐
+    """
+    with gr.Group():
+        if label:
+            # 使用与 create_masked_input 完全相同的 HTML 标签样式
+            gr.HTML(f'<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">{label}</div>')
+        # container=False 去除 Gradio 自带的外框，防止双重边距
+        return gr.Textbox(show_label=False, value=value, placeholder=placeholder, info=info, interactive=True, container=False, scale=10)
 def create_masked_input(label, value, placeholder="", link_info=""):
     with gr.Group():
         if label:
@@ -324,7 +329,6 @@ def create_masked_input(label, value, placeholder="", link_info=""):
 with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=theme, css=modern_css) as demo:
     
     image_context_state = gr.State(None)
-
     with gr.Tabs():
         
         # ============================================================
@@ -333,15 +337,12 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
         with gr.Tab("💬 智能问答"):
             
             with gr.Column(elem_classes="main-content"):
-                
                 gr.HTML("""
-                    <div class="tutorial-banner">
-                        <div class="tutorial-link">
-                            <span>📖 查看使用教程</span>
-                            <span>→</span>
-                        </div>
+                    <div class="sidebar-hint">
+                        查看使用教程 →
                     </div>
-                    """)
+                """)
+                
                 with gr.Row():
                     
                     # --- 左侧：品牌 & 极简列表 ---
@@ -375,8 +376,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                             placeholder="# 👋 Document AI\n\nAsk anything about your documents.",
                             latex_delimiters=latex_config
                         )
-                        with gr.Row(elem_classes="input-row"):
-                            
+                        with gr.Row(elem_classes="input-row", equal_height=False):
                             # === 1. 左侧：迷你预览胶囊 (默认隐藏，scale=0 不占地) ===
                             with gr.Group(visible=False, elem_classes="img-preview-mini") as img_preview_group:
                                 with gr.Row(elem_classes="row-center no-padding"):
@@ -417,8 +417,8 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                             )
                             
                             # === 3. 右侧：功能按钮 ===
-                            clear_btn = gr.Button("🗑️", elem_classes="action-btn trash-btn", size="sm", scale=0)
-                            submit_btn = gr.Button("➤", elem_classes="action-btn send-btn", size="sm", scale=0)
+                            clear_btn = gr.Button("🗑️", elem_classes="action-btn trash-btn", size="sm", scale=0, min_width=42)
+                            submit_btn = gr.Button("➤", elem_classes="action-btn send-btn", size="sm", scale=0, min_width=42)
                         # # --- 稳健版输入框 ---
                         # # 使用简单的 Row + Textbox，样式直接作用于 Textbox
                         # with gr.Row(elem_classes="input-row"):
@@ -469,7 +469,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                     gr.HTML('<div style="height:10px"></div>')
                     files_input = gr.File(label="PDF 文件", file_count="multiple", type="filepath", height=120)
                     
-                    # =========== 🟢 新增代码开始 ===========
+    
                     # 请确保你项目根目录下有 examples 文件夹，并且里面有 demo.pdf
                     # 如果没有文件，这个组件不会报错，但点击没反应
                     # example_dir = "examples"
@@ -585,7 +585,11 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                 gr.HTML('<div class="card-header"><span>🛠️</span> 基础配置</div>')
                 with gr.Row():
                     with gr.Column(scale=1):
-                         ocr_url = gr.Textbox(label="OCR API URL", value=os.getenv("OCR_API_URL", ""), info="获取方式见教程")
+                         ocr_url = create_normal_input(
+                             label="OCR API URL", 
+                             value=os.getenv("OCR_API_URL", ""), 
+                             info="获取方式见教程"
+                         )
                     with gr.Column(scale=1):
                          ocr_token = create_masked_input(
                              "OCR Token", 
@@ -595,10 +599,10 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                          
                 gr.HTML('<hr style="margin: 20px 0; border-top: 1px dashed #e5e7eb;">')
                 
-                use_local_mode = gr.Checkbox(label="📂 使用本地 Milvus Lite (无需服务器)", value=False)
+                # use_local_mode = gr.Checkbox(label="📂 使用本地 Milvus Lite (无需服务器)", value=False)
                 with gr.Row():
                     with gr.Column(scale=1):
-                        tk_uri = gr.Textbox(label="Milvus URI", value=os.getenv("MILVUS_URI", ""), info="Zilliz Cloud 或本地地址")
+                        tk_uri = create_normal_input(label="Milvus URI", value=os.getenv("MILVUS_URI", ""), info="Zilliz Cloud 或本地地址")
                     with gr.Column(scale=1):
                         tk_token = create_masked_input(
                             "Milvus Token", 
@@ -616,11 +620,8 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                     with gr.Column(scale=1, min_width=120):
                         btn_connect = gr.Button("💾 保存并连接", variant="primary", size="lg")
     # ==============================================================================
-    # 📖 全局侧边栏 (加载外部 MD)
-    # ==============================================================================
     with gr.Sidebar(label="📖 使用教程", open=False, position="right"):
         gr.Markdown(value=load_tutorial_content())
-
     # ==============================================================================
     # 🔗 逻辑绑定
     # ==============================================================================
@@ -671,7 +672,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
         lambda: (gr.update(visible=False), None, gr.update(selected_index=None)), 
         outputs=[img_preview_group, preview_img, doc_gallery]
     )
-    use_local_mode.change(lambda x: (gr.update(value="./data.db"), gr.update(value="")) if x else (gr.update(value=os.getenv("MILVUS_URI")), gr.update(value=os.getenv("MILVUS_TOKEN"))), inputs=[use_local_mode], outputs=[tk_uri, tk_token])
+    # use_local_mode.change(lambda x: (gr.update(value="./data.db"), gr.update(value="")) if x else (gr.update(value=os.getenv("MILVUS_URI")), gr.update(value=os.getenv("MILVUS_TOKEN"))), inputs=[use_local_mode], outputs=[tk_uri, tk_token])
     btn_connect.click(backend.initialize_system, inputs=[llm_api_base, llm_api_key, llm_model, embed_api_base, embed_api_key, embed_model, ocr_url, ocr_token, tk_uri, tk_token, api_qps], outputs=[connect_log, qa_col_select, upload_col_select, del_col_select])
     refresh_btn.click(backend.update_file_list, inputs=[qa_col_select], outputs=[qa_file_select])
     qa_col_select.change(backend.update_file_list, inputs=[qa_col_select], outputs=[qa_file_select])
@@ -703,7 +704,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
     # submit_btn.click(backend.chat_respond, inputs=[msg, chatbot, qa_col_select, qa_file_select, image_context_state], outputs=[chatbot, chatbot, msg, qa_metric, image_context_state])
     clear_btn.click(lambda: ([], "", "N/A", ""), outputs=[chatbot, msg, qa_metric, image_context_state])
     test_recall_btn.click(backend.run_recall_test, inputs=[upload_col_select], outputs=[test_result_box])
-
+    
 def find_free_port(start=7860):
     for port in range(start, start+10):
         try:
@@ -713,6 +714,7 @@ def find_free_port(start=7860):
             return port
         except OSError: continue
     return start
+
 abs_asset_path = os.path.abspath("assets")
 if __name__ == "__main__":
     port = find_free_port()
