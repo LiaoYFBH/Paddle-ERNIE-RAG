@@ -206,7 +206,7 @@ class MilvusVectorStore:
                     rank_dict[doc_id] = {"data": item, "score": 0.0}
                 rank_dict[doc_id]["score"] += weight * (1.0 / (k + rank))
 
-        apply_rrf(dense_results, weight=3.0)
+        apply_rrf(dense_results, weight=4.0)
         apply_rrf(keyword_results, weight=1.0) 
 
         # === 4. 排序输出 ===
