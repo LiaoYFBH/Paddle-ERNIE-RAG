@@ -262,6 +262,30 @@ footer { display: none !important; }
     font-weight: 400 !important;
     line-height: 1.1 !important;
 }
+.mini-close-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #9ca3af !important; /* 默认浅灰色 */
+    font-size: 14px !important;
+    font-weight: bold !important;
+    padding: 0 !important;
+    margin: 0 5px 0 0 !important;
+    height: 24px !important;
+    width: 24px !important;
+    min-width: 24px !important;
+    border-radius: 50% !important; /* 圆形点击区 */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s !important;
+}
+
+.mini-close-btn:hover {
+    background-color: #fee2e2 !important; /* 悬停浅红背景 */
+    color: #ef4444 !important; /* 悬停深红文字 */
+    transform: scale(1.1);
+}
 """
 latex_config = [
     {"left": "$$", "right": "$$", "display": True},   # 行间公式
@@ -377,7 +401,7 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                             # === 1. 左侧：迷你预览胶囊 (默认隐藏，scale=0 不占地) ===
                             with gr.Group(visible=False, elem_classes="img-preview-mini") as img_preview_group:
                                 with gr.Row(elem_classes="row-center no-padding"):
-                                    # 图片缩略图
+                                    # A. 图片缩略图
                                     with gr.Column(elem_classes="mini-img-container", min_width=42, scale=0):
                                         preview_img = gr.Image(
                                             show_label=False, 
@@ -389,8 +413,8 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                                             width=42
                                         )
                                     
-                                    # 文字提示
-                                    with gr.Column(min_width=100, scale=0):
+                                    # B. 文字提示
+                                    with gr.Column(min_width=80, scale=0):
                                         gr.HTML("""
                                         <div style="display:flex;flex-direction:column;">
                                             <span class="mini-tag-text">📷 图表预览</span>
@@ -398,9 +422,9 @@ with gr.Blocks(title="多文档高精度智能分析与问答系统", theme=them
                                         </div>
                                         """)
                                     
-                                    # 关闭按钮
-                                    btn_clear_img = gr.Button("✕", elem_classes="mini-close-btn", size="sm", scale=0, min_width=24)
-
+                                    # C. 关闭按钮
+                                    with gr.Column(min_width=30, scale=0, elem_classes="no-padding"): 
+                                        btn_clear_img = gr.Button("✕", elem_classes="mini-close-btn", size="sm", scale=0)
                             # === 2. 中间：输入框 (scale=10 自动填满剩余空间) ===
                             msg = gr.Textbox(
                                 show_label=False, 
