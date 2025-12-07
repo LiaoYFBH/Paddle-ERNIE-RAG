@@ -139,7 +139,7 @@ class MilvusVectorStore:
             
             res = self.collection.query(
                 expr=final_milvus_expr,
-                output_fields=["filename", "page", "content", "chunk_id"],
+                output_fields=["id", "filename", "page", "content", "chunk_id"],
                 limit=top_k
             )
             
@@ -206,8 +206,8 @@ class MilvusVectorStore:
                     rank_dict[doc_id] = {"data": item, "score": 0.0}
                 rank_dict[doc_id]["score"] += weight * (1.0 / (k + rank))
 
-        apply_rrf(dense_results, weight=1.0)
-        apply_rrf(keyword_results, weight=3.0) 
+        apply_rrf(dense_results, weight=3.0)
+        apply_rrf(keyword_results, weight=1.0) 
 
         # === 4. 排序输出 ===
         sorted_docs = sorted(rank_dict.values(), key=lambda x: x['score'], reverse=True)
